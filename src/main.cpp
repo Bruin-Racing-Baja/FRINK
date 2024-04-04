@@ -1,4 +1,6 @@
+#include "actuator.h"
 #include <Arduino.h>
+
 #include <FlexCAN_T4.h>
 // clang-format off
 #include <SPI.h>
@@ -6,6 +8,12 @@
 #include <HardwareSerial.h>
 #include <SD.h>
 #include <TimeLib.h>
+#include <control_function_message.pb.h>
+#include <header_message.pb.h>
+#include <odrive.h>
+#include <pb.h>
+#include <pb_common.h>
+#include <pb_encode.h>
 
 using u8 = uint8_t;
 using i8 = int8_t;
@@ -20,7 +28,6 @@ enum class OperatingMode {
   Normal,
   Debug,
 };
-
 /**** Constants ****/
 // Powertrain Constants
 constexpr u8 engine_counts_per_rot = 16;
@@ -31,7 +38,10 @@ constexpr float gear_to_wheel_ratio = 1.0;
 constexpr float secondary_to_wheel_ratio =
     ((46.0 / 17.0) * (56.0 / 19.0)); // ~7.975
 constexpr float wheel_to_secondary_ratio =
-    (1.0 / secondary_to_wheel_ratio); // ~0.1253
+    (1.0 / secondary_to_wheel_ratio);      // ~0.1253
+constexpr float actuator_pitch = 5;        // 5 mm /rot
+constexpr float actuator_range = 2.5;      // inches
+constexpr float actuator_full_range = 3.5; // inches
 
 // Unit Constants
 constexpr float seconds_per_minute = 60.0;
@@ -54,6 +64,9 @@ constexpr bool wait_for_serial = false;
 
 /**** Global Objects ****/
 IntervalTimer timer;
+FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> flexcan_bus;
+ODrive odrive(&flexcan_bus);
+Actuator actuator(&odrive);
 
 /**** Status Variables ****/
 bool sd_initialized = false;
