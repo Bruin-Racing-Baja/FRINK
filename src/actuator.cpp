@@ -7,12 +7,11 @@
  * Constructor for the actuator
  * @param odrive Pointer to ODrive object
  */
-Actuator::Actuator(ODrive *odrive)
-    : odrive(odrive)  {}
+Actuator::Actuator(ODrive *odrive) : odrive(odrive) {}
 
 /**
  * Initializes connection to physical ODrive
- * @return true if successful
+ * @return 0 if successful
  */
 u8 Actuator::init() { return 0; }
 
@@ -22,7 +21,7 @@ u8 Actuator::init() { return 0; }
  */
 u8 Actuator::encoder_index_search() {
   // TODO: Fix delay
-  if(odrive->set_axis_state(ODrive::AxisState::ENCODER_INDEX_SEARCH) != 0){
+  if (odrive->set_axis_state(ODrive::AxisState::ENCODER_INDEX_SEARCH) != 0) {
     return 1;
   }
   delayMicroseconds(5e6);
@@ -33,10 +32,10 @@ u8 Actuator::encoder_index_search() {
  * @param velocity The velocity to set
  * @return 0 if successful
  */
-u8 Actuator::set_velocity(float velocity, float brake_offset) {
+u8 Actuator::set_velocity(float velocity) {
   // TODO: Fix error handling. Implement brake offset.
   if (odrive->set_axis_state(ODrive::AxisState::CLOSED_LOOP_CONTROL) != 0) {
-    Serial.print("Error: Could not set ODrive to CLOSED_LOOP_CONTROL state\n");
+    Serial.print("Error: Could not set ODrive axis state to CLOSED_LOOP_CONTROL\n");
     return 1;
   }
 

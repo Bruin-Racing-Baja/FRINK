@@ -12,7 +12,8 @@ public:
 
   u8 init();
   u8 encoder_index_search();
-  u8 set_velocity(float velocity, float brake_offset);
+  u8 set_velocity(float velocity_offset);
+
 private:
   ODrive *odrive;
 };

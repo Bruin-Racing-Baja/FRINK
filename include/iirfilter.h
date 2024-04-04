@@ -1,9 +1,9 @@
 #ifndef IIR_FILTER_H
 #define IIR_FILTER_H
-#include <stdint.h>
+#include <types.h>
 
 class IIRFilter {
- public:
+public:
   IIRFilter(const float b_[], const float a_[], uint32_t M_, uint32_t N_);
   ~IIRFilter();
 
@@ -11,13 +11,13 @@ class IIRFilter {
 
   float get();
 
- private:
-  float* b;
-  float* a;
-  float* y;
-  float* x;
-  uint32_t M;
-  uint32_t N;
+private:
+  float *b;
+  float *a;
+  float *y;
+  float *x;
+  u32 M;
+  u32 N;
 };
 
 #define iirfilter_h

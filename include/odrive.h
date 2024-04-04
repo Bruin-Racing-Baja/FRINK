@@ -5,11 +5,13 @@
 #include <FlexCAN_T4.h>
 #include <types.h>
 
+// TODO: Move status codes
 constexpr u8 ODRIVE_CMD_SUCCESS = 0;
 constexpr u8 ODRIVE_CMD_ERROR_INVALID_AXIS = 1;
 constexpr u8 ODRIVE_CMD_ERROR_INVALID_COMMAND = 2;
 constexpr u8 ODRIVE_CMD_ERROR_WRITE_FAILED = 3;
 
+// TODO: Move CAN IDs
 constexpr u32 CAN_GET_VERSION = 0x000;
 constexpr u32 CAN_HEARTBEAT = 0x001;
 constexpr u32 CAN_ESTOP = 0x002;
@@ -63,10 +65,11 @@ public:
     ANTICOGGING_CALIBRATION = 0xE,
   };
 
-  ODrive(FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus, u32 node_id = 0x3f)
+  ODrive(FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus,
+         u32 node_id = 0x3f)
       : flexcan_bus(flexcan_bus), node_id(node_id) {}
 
-  u8 init(void (*parse)(const CAN_message_t &msg));
+  u8 init();
 
   void parse_message(const CAN_message_t &msg);
 

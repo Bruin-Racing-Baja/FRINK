@@ -4,16 +4,10 @@
 /**
  * @brief Initialize the CAN bus for communication with the ODrive
  * @param parse Pointer to function that parses received messages
+ * @return 0 if successful
  */
-u8 ODrive::init(void (*parse)(const CAN_message_t &msg)) {
-  flexcan_bus->begin();
-  flexcan_bus->setBaudRate(250000);
-  flexcan_bus->setMaxMB(16);
-  flexcan_bus->enableFIFO();
-  flexcan_bus->enableFIFOInterrupt();
-  flexcan_bus->onReceive(parse);
-  NVIC_SET_PRIORITY(IRQ_CAN2, 1);
-  return true;
+u8 ODrive::init() {
+  return 0;
 }
 
 /**
@@ -63,6 +57,7 @@ u8 ODrive::send_empty_command(u32 cmd_id, bool remote) {
  */
 void ODrive::parse_message(const CAN_message_t &msg) {
   u32 parsed_node_id = msg.id >> 5;
+
   if (parsed_node_id != node_id) {
     return;
   }
@@ -94,11 +89,6 @@ void ODrive::parse_message(const CAN_message_t &msg) {
     memcpy(&bus_voltage, msg.buf, 4);
     memcpy(&bus_current, msg.buf + 4, 4);
     break;
-    /*
-  case CAN_GET_GPIO_STATES:
-    memcpy(&gpio_states, msg.buf, 4);
-    break;
-  */
   }
 }
 
@@ -154,12 +144,16 @@ float ODrive::get_bus_current() { return bus_current; }
 
 u8 ODrive::reboot() { return send_empty_command(CAN_REBOOT, false); }
 
-u8 ODrive::clear_errors() { return send_empty_command(CAN_CLEAR_ERRORS, false); }
+u8 ODrive::clear_errors() {
+  return send_empty_command(CAN_CLEAR_ERRORS, false);
+}
 
 /**
- * Commands for the ODrive.
+ * Setters for the various class ODrive class members that are updated by CAN
+ * messages.
  */
-u8 ODrive::set_axis_state(ODrive::AxisState requested_state){
+
+u8 ODrive::set_axis_state(ODrive::AxisState requested_state) {
   u8 buf[8] = {0};
   memcpy(buf, &requested_state, 4);
   return send_command(CAN_SET_AXIS_STATE, false, buf);
@@ -190,7 +184,6 @@ u8 ODrive::set_input_vel(float input_vel, float torque_ff) {
 u8 ODrive::set_input_torque(float input_torque) {
   u8 buf[8] = {0};
   memcpy(buf, &input_torque, 4);
-
   return send_command(CAN_SET_INPUT_TORQUE, false, buf);
 }
 
