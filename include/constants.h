@@ -39,11 +39,11 @@ constexpr float ACTUATOR_PITCH_MM = 5.0; // mm / rot
 constexpr float ACTUATOR_PITCH_INCH =
     ACTUATOR_PITCH_MM * INCHES_PER_MM;            // inch / rot
 constexpr float ACTUATOR_OUTBOUND_POS_INCH = 3.5; // inch
-constexpr float ACTUATOR_BELT_POS_INCH = 1.0;       // inch
+constexpr float ACTUATOR_BELT_POS_INCH = 1.0;     // inch
 
 // Control Function
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
-constexpr float ENGINE_TARGET_RPM = 300.0; // rpm
+constexpr float ENGINE_TARGET_RPM = 3000.0;      // rpm
 constexpr float ACTUATOR_KP = 0.01;
 
 // Teensy Pins
@@ -52,6 +52,10 @@ constexpr u8 YELLOW_LED_PIN = 8;
 constexpr u8 RED_LED_PIN = 9;
 constexpr u8 WHITE_LED_PIN = 29;
 constexpr u8 GREEN2_LED_PIN = 28;
+
+constexpr u8 LIMIT_SWITCH_IN_PIN = 25;
+constexpr u8 LIMIT_SWITCH_OUT_PIN = 26;
+constexpr u8 LIMIT_SWITCH_ENGAGE_PIN = 27;
 
 constexpr u8 BUTTON_PINS[] = {2, 3, 4, 5, 6};
 
@@ -69,14 +73,10 @@ constexpr u32 FLEXCAN_MAX_MAILBOX = 16;
 // bytes_per_cycle * cycle_freq * time_to_flush_sd * safety_factor
 // 100 * 100 * 0.4 * 2 = 8000
 constexpr size_t LOG_BUFFER_SIZE = 8192; // 12288 to be safe
-constexpr size_t CONTROL_FUNCTION_MESSAGE_BUFFER_SIZE = 512;
 
 constexpr u8 PROTO_HEADER_MESSAGE_ID = 0x00;
 constexpr u8 PROTO_CONTROL_FUNCTION_MESSAGE_ID = 0x01;
 
-// ODrive Pins
-// TODO: Get ODrive limit switch pins
-const u8 LIMIT_SWITCH_IN_ODRIVE_PIN = 7;
-const u8 LIMIT_SWITCH_OUT_ODRIVE_PIN = 8;
+constexpr u8 PROTO_DELIMITER_LENGTH = 5;
 
 #endif

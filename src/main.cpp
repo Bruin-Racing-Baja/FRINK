@@ -1,5 +1,7 @@
+#include "core_pins.h"
 #include <Arduino.h>
 #include <actuator.h>
+#include <cmath>
 #include <constants.h>
 
 #include <FlexCAN_T4.h>
@@ -26,8 +28,8 @@ enum class OperatingMode {
 };
 
 /**** Operation Flags ****/
-constexpr OperatingMode operating_mode = OperatingMode::DEBUG;
-constexpr bool wait_for_serial = false;
+constexpr OperatingMode operating_mode = OperatingMode::NORMAL;
+constexpr bool wait_for_serial = true;
 
 /**** Global Objects ****/
 IntervalTimer timer;
@@ -50,7 +52,7 @@ u32 last_gear_count = 0;
 
 /**** Logging Variables ****/
 struct LogBuffer {
-  u8 buffer[LOG_BUFFER_SIZE];
+  char buffer[LOG_BUFFER_SIZE];
   size_t idx;
   bool full;
 };
@@ -70,6 +72,7 @@ void control_function() {
   u32 cycle_start_us = micros();
   float dt_s = CONTROL_FUNCTION_INTERVAL_MS * SECONDS_PER_MS;
 
+  // Grab sensor data
   noInterrupts();
   u32 cur_engine_count = engine_count;
   u32 cur_gear_count = gear_count;
@@ -87,16 +90,15 @@ void control_function() {
   float wheel_rpm = gear_rpm * GEAR_TO_WHEEL_RATIO;
   float secondary_rpm = wheel_rpm * SECONDARY_TO_WHEEL_RATIO;
 
+  // Controller
   float target_rpm = ENGINE_TARGET_RPM;
   float error = target_rpm - engine_rpm;
 
   float velocity_command = error * ACTUATOR_KP;
-  actuator.set_velocity(velocity_command);
+  // actuator.set_velocity(velocity_command);
 
-#if 0
-  // TODO: Should this be a more general variable encapsulating the state of the
-  // control function?
-  ControlFunctionMessage log_message;
+  // TODO: Use protobuf for storing system state
+  ControlFunctionMessage log_message = ControlFunctionMessage_init_default;
   log_message.secondary_rpm = secondary_rpm;
   log_message.engine_rpm = engine_rpm;
   log_message.cycle_count = control_cycle_count;
@@ -110,19 +112,25 @@ void control_function() {
   log_message.velocity_command = velocity_command;
 
   // TODO: Profile serialization
-  u8 log_message_data[CONTROL_FUNCTION_MESSAGE_BUFFER_SIZE];
-  pb_ostream_t ostream = pb_ostream_from_buffer(log_message_data + 5,
-                                                sizeof(log_message_data) - 5);
+  u8 log_message_data[ControlFunctionMessage_size + PROTO_DELIMITER_LENGTH];
+  pb_ostream_t ostream =
+      pb_ostream_from_buffer(log_message_data + PROTO_DELIMITER_LENGTH,
+                             sizeof(log_message_data) - PROTO_DELIMITER_LENGTH);
   pb_encode(&ostream, &ControlFunctionMessage_msg, &log_message);
 
   size_t log_message_length = ostream.bytes_written;
-  snprintf(log_message_data, 5, "%01X%04X", PROTO_CONTROL_FUNCTION_MESSAGE_ID,
-           log_message_length);
-  log_message_length += 5;
+
+  char prefix[PROTO_DELIMITER_LENGTH + 1];
+  snprintf(prefix, PROTO_DELIMITER_LENGTH + 1, "%01X%04X",
+           PROTO_CONTROL_FUNCTION_MESSAGE_ID, log_message_length);
+  memcpy(log_message_data, prefix, PROTO_DELIMITER_LENGTH);
+
+  log_message_length += PROTO_DELIMITER_LENGTH;
 
   LogBuffer *cur_buffer = &double_buffer[cur_buffer_num];
+
   if (cur_buffer->full) {
-    Serial.print("Error: Something Very Bad is Happening!\n");
+    Serial.print("Error: BAD! Current buffer is full :(\n");
   } else if (cur_buffer->idx + log_message_length > LOG_BUFFER_SIZE) {
     size_t remaining_space = LOG_BUFFER_SIZE - cur_buffer->idx;
     memcpy(cur_buffer->buffer + cur_buffer->idx, log_message_data,
@@ -146,7 +154,6 @@ void control_function() {
            log_message_length);
     cur_buffer->idx += log_message_length;
   }
-#endif
 
   control_cycle_count++;
 }
@@ -156,7 +163,7 @@ void debug_mode() {
   u32 cur_engine_count = engine_count;
   u32 cur_gear_count = gear_count;
   interrupts();
-  digitalWrite(RED_LED_PIN, digitalRead(BUTTON_PINS[0]));
+  Serial.printf("debug: %d, %d\n", cur_engine_count, cur_gear_count);
   // Serial.printf("Debug Mode: %d, %d, %d\n", control_cycle_count,
   // cur_engine_count, cur_gear_count);
   control_cycle_count++;
@@ -178,6 +185,10 @@ void setup() {
 
   pinMode(THROTTLE_POT_PIN, INPUT);
   pinMode(BRAKE_SENSOR_PIN, INPUT);
+
+  pinMode(LIMIT_SWITCH_IN_PIN, INPUT);
+  pinMode(LIMIT_SWITCH_OUT_PIN, INPUT);
+  pinMode(LIMIT_SWITCH_ENGAGE_PIN, INPUT);
 
   if (wait_for_serial) {
     while (!Serial) {
@@ -227,7 +238,8 @@ void setup() {
   flexcan_bus.enableFIFOInterrupt();
   flexcan_bus.onReceive(can_parse);
 
-  NVIC_SET_PRIORITY(IRQ_CAN2, 1);
+  // TODO: Figure out proper ISR priority levels
+  NVIC_SET_PRIORITY(IRQ_CAN1, 1);
 
   switch (operating_mode) {
   case OperatingMode::NORMAL:
@@ -242,9 +254,11 @@ void setup() {
 void loop() {
   for (size_t buffer_num = 0; buffer_num < 2; buffer_num++) {
     if (double_buffer[buffer_num].full) {
+      Serial.printf("Flush: Writing buffer %d to SD\n", buffer_num);
       log_file.write(double_buffer[buffer_num].buffer, LOG_BUFFER_SIZE);
       log_file.flush();
       double_buffer[buffer_num].full = false;
+      double_buffer[buffer_num].idx = 0;
     }
   }
 }
