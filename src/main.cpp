@@ -12,9 +12,11 @@
 #include <SD.h>
 #include <TimeLib.h>
 #include <control_function_message.pb.h>
+#include <control_function_state.pb.h>
 #include <cstring>
 #include <header_message.pb.h>
 #include <odrive.h>
+#include <operation_header.pb.h>
 #include <pb.h>
 #include <pb_common.h>
 #include <pb_encode.h>
@@ -50,6 +52,8 @@ volatile u32 gear_count = 0;
 u32 last_engine_count = 0;
 u32 last_gear_count = 0;
 
+ControlFunctionState control_state = ControlFunctionState_init_default;
+
 /**** Logging Variables ****/
 struct LogBuffer {
   char buffer[LOG_BUFFER_SIZE];
@@ -67,56 +71,51 @@ time_t get_teensy3_time() { return Teensy3Clock.get(); }
 
 void can_parse(const CAN_message_t &msg) { odrive.parse_message(msg); }
 
+inline void write_all_leds(u8 state) {
+  digitalWrite(GREEN_LED_PIN, state);
+  digitalWrite(YELLOW_LED_PIN, state);
+  digitalWrite(RED_LED_PIN, state);
+  digitalWrite(GREEN2_LED_PIN, state);
+  digitalWrite(WHITE_LED_PIN, state);
+}
+
 // ඞ
 void control_function() {
-  u32 cycle_start_us = micros();
+  control_state.cycle_start_us = micros();
   float dt_s = CONTROL_FUNCTION_INTERVAL_MS * SECONDS_PER_MS;
 
   // Grab sensor data
   noInterrupts();
-  u32 cur_engine_count = engine_count;
-  u32 cur_gear_count = gear_count;
+  control_state.engine_count = engine_count;
+  control_state.gear_count = gear_count;
   interrupts();
 
   // Calculate instantaneous RPMs
-  float engine_rpm = (cur_engine_count - last_engine_count) /
-                     ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
-  float gear_rpm = (cur_gear_count - last_gear_count) / GEAR_COUNTS_PER_ROT /
-                   dt_s * SECONDS_PER_MINUTE;
+  control_state.engine_rpm = (control_state.engine_count - last_engine_count) /
+                             ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
+  float gear_rpm = (control_state.gear_count - last_gear_count) /
+                   GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
 
-  last_engine_count = cur_engine_count;
-  last_gear_count = cur_gear_count;
+  last_engine_count = control_state.engine_count;
+  last_gear_count = control_state.gear_count;
 
   float wheel_rpm = gear_rpm * GEAR_TO_WHEEL_RATIO;
-  float secondary_rpm = wheel_rpm * SECONDARY_TO_WHEEL_RATIO;
+  control_state.secondary_rpm = wheel_rpm * SECONDARY_TO_WHEEL_RATIO;
 
   // Controller
-  float target_rpm = ENGINE_TARGET_RPM;
-  float error = target_rpm - engine_rpm;
+  control_state.target_rpm = ENGINE_TARGET_RPM;
+  control_state.engine_rpm_error =
+      control_state.target_rpm - control_state.engine_rpm;
 
-  float velocity_command = error * ACTUATOR_KP;
+  control_state.velocity_command = control_state.engine_rpm_error * ACTUATOR_KP;
   // actuator.set_velocity(velocity_command);
 
-  // TODO: Use protobuf for storing system state
-  ControlFunctionMessage log_message = ControlFunctionMessage_init_default;
-  log_message.secondary_rpm = secondary_rpm;
-  log_message.engine_rpm = engine_rpm;
-  log_message.cycle_count = control_cycle_count;
-  log_message.cycle_start_us = cycle_start_us;
-  log_message.engine_count = cur_engine_count;
-  log_message.gear_count = cur_gear_count;
-  log_message.engine_rpm = engine_rpm;
-  log_message.secondary_rpm = secondary_rpm;
-  log_message.target_rpm = target_rpm;
-  log_message.engine_rpm_error = error;
-  log_message.velocity_command = velocity_command;
-
   // TODO: Profile serialization
-  u8 log_message_data[ControlFunctionMessage_size + PROTO_DELIMITER_LENGTH];
+  u8 log_message_data[ControlFunctionState_size + PROTO_DELIMITER_LENGTH];
   pb_ostream_t ostream =
       pb_ostream_from_buffer(log_message_data + PROTO_DELIMITER_LENGTH,
                              sizeof(log_message_data) - PROTO_DELIMITER_LENGTH);
-  pb_encode(&ostream, &ControlFunctionMessage_msg, &log_message);
+  pb_encode(&ostream, &ControlFunctionState_msg, &control_state);
 
   size_t log_message_length = ostream.bytes_written;
 
@@ -191,9 +190,13 @@ void setup() {
   pinMode(LIMIT_SWITCH_ENGAGE_PIN, INPUT);
 
   if (wait_for_serial) {
+    u32 led_flash_time_ms = 500;
     while (!Serial) {
+      write_all_leds(millis() % (led_flash_time_ms * 2) < led_flash_time_ms);
     }
   }
+
+  write_all_leds(LOW);
 
   setSyncProvider(get_teensy3_time);
 
@@ -205,26 +208,27 @@ void setup() {
   sd_initialized = SD.sdfs.begin(SdioConfig(DMA_SDIO));
   if (!sd_initialized) {
     Serial.println("Warning: SD failed to initialize");
-  }
+    digitalWrite(RED_LED_PIN, HIGH);
+  } else {
+    char log_name[64];
+    snprintf(log_name, sizeof(log_name),
+             "log_%04d-%02d-%02d_%02d-%02d-%02d.bin", year(), month(), day(),
+             hour(), minute(), second());
 
-  // TODO: Skip log if SD failed
-  char log_name[64];
-  snprintf(log_name, sizeof(log_name), "log_%04d-%02d-%02d_%02d-%02d-%02d.bin",
-           year(), month(), day(), hour(), minute(), second());
-
-  if (SD.exists(log_name)) {
-    char log_name_duplicate[64];
-    for (int log_num = 0; log_num < 1000; log_num++) {
-      snprintf(log_name_duplicate, sizeof(log_name_duplicate), "%.*s_%03d.bin",
-               23, log_name, log_num);
-      if (!SD.exists(log_name_duplicate)) {
-        break;
+    if (SD.exists(log_name)) {
+      char log_name_duplicate[64];
+      for (int log_num = 0; log_num < 1000; log_num++) {
+        snprintf(log_name_duplicate, sizeof(log_name_duplicate),
+                 "%.*s_%03d.bin", 23, log_name, log_num);
+        if (!SD.exists(log_name_duplicate)) {
+          break;
+        }
       }
+      strncpy(log_name, log_name_duplicate, sizeof(log_name));
+      log_name[sizeof(log_name) - 1] = '\0';
     }
-    strncpy(log_name, log_name_duplicate, sizeof(log_name));
-    log_name[sizeof(log_name) - 1] = '\0';
+    log_file = SD.open(log_name, FILE_WRITE);
   }
-  log_file = SD.open(log_name, FILE_WRITE);
 
   attachInterrupt(
       ENGINE_SENSOR_PIN, []() { ++engine_count; }, FALLING);
@@ -252,13 +256,15 @@ void setup() {
 }
 
 void loop() {
-  for (size_t buffer_num = 0; buffer_num < 2; buffer_num++) {
-    if (double_buffer[buffer_num].full) {
-      Serial.printf("Flush: Writing buffer %d to SD\n", buffer_num);
-      log_file.write(double_buffer[buffer_num].buffer, LOG_BUFFER_SIZE);
-      log_file.flush();
-      double_buffer[buffer_num].full = false;
-      double_buffer[buffer_num].idx = 0;
+  if (sd_initialized || log_file) {
+    for (size_t buffer_num = 0; buffer_num < 2; buffer_num++) {
+      if (double_buffer[buffer_num].full) {
+        Serial.printf("Flush: Writing buffer %d to SD\n", buffer_num);
+        log_file.write(double_buffer[buffer_num].buffer, LOG_BUFFER_SIZE);
+        log_file.flush();
+        double_buffer[buffer_num].full = false;
+        double_buffer[buffer_num].idx = 0;
+      }
     }
   }
 }
