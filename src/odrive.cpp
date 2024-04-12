@@ -1,14 +1,16 @@
 #include <FlexCAN_T4.h>
 #include <odrive.h>
 
+ODrive::ODrive(FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus,
+               u32 node_id)
+    : flexcan_bus(flexcan_bus), node_id(node_id) {}
+
 /**
  * @brief Initialize the CAN bus for communication with the ODrive
  * @param parse Pointer to function that parses received messages
  * @return 0 if successful
  */
-u8 ODrive::init() {
-  return 0;
-}
+u8 ODrive::init() { return 0; }
 
 /**
  * @brief Send a command
@@ -23,7 +25,7 @@ u8 ODrive::send_command(u32 cmd_id, bool remote, u8 buf[8]) {
   CAN_message_t msg;
 
   if (cmd_id < 0x00 || 0x1f < cmd_id) {
-    return ODRIVE_CMD_ERROR_INVALID_COMMAND;
+    return ODrive::CMD_ERROR_INVALID_COMMAND;
   }
 
   msg.id = (node_id << 5) | cmd_id;
@@ -33,9 +35,9 @@ u8 ODrive::send_command(u32 cmd_id, bool remote, u8 buf[8]) {
 
   int write_code = flexcan_bus->write(msg);
   if (write_code == -1) {
-    return ODRIVE_CMD_ERROR_WRITE_FAILED;
+    return ODrive::CMD_ERROR_WRITE_FAILED;
   }
-  return ODRIVE_CMD_SUCCESS;
+  return ODrive::CMD_SUCCESS;
 }
 
 /**
@@ -120,7 +122,7 @@ u32 ODrive::get_time_since_heartbeat_ms() {
 
 u32 ODrive::get_axis_error() { return axis_error; }
 
-ODrive::AxisState ODrive::get_axis_state() { return axis_state; }
+u32 ODrive::get_axis_state() { return axis_state; }
 
 u32 ODrive::get_active_errors() { return active_errors; }
 
@@ -152,8 +154,7 @@ u8 ODrive::clear_errors() {
  * Setters for the various class ODrive class members that are updated by CAN
  * messages.
  */
-
-u8 ODrive::set_axis_state(ODrive::AxisState requested_state) {
+u8 ODrive::set_axis_state(u32 requested_state) {
   u8 buf[8] = {0};
   memcpy(buf, &requested_state, 4);
   return send_command(CAN_SET_AXIS_STATE, false, buf);
