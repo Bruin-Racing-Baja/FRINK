@@ -1,7 +1,5 @@
-#include "core_pins.h"
 #include <Arduino.h>
 #include <actuator.h>
-#include <cmath>
 #include <constants.h>
 
 #include <FlexCAN_T4.h>
@@ -11,10 +9,8 @@
 #include <HardwareSerial.h>
 #include <SD.h>
 #include <TimeLib.h>
-#include <control_function_message.pb.h>
 #include <control_function_state.pb.h>
 #include <cstring>
-#include <header_message.pb.h>
 #include <odrive.h>
 #include <operation_header.pb.h>
 #include <pb.h>
@@ -24,8 +20,11 @@
 #include <stdio.h>
 #include <types.h>
 
+// Acknowledgements to Getty & Tyler :)
+
 enum class OperatingMode {
   NORMAL,
+  BUTTON_SHIFT,
   DEBUG,
 };
 
@@ -36,7 +35,7 @@ constexpr bool wait_for_serial = true;
 /**** Global Objects ****/
 IntervalTimer timer;
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> flexcan_bus;
-ODrive odrive(&flexcan_bus);
+ODrive odrive(&flexcan_bus, ODRIVE_NODE_ID);
 Actuator actuator(&odrive);
 File log_file;
 
@@ -53,6 +52,9 @@ u32 last_engine_count = 0;
 u32 last_gear_count = 0;
 
 ControlFunctionState control_state = ControlFunctionState_init_default;
+
+/**** System State Variables ****/
+bool last_button_state[5] = {HIGH, HIGH, HIGH, HIGH, HIGH};
 
 /**** Logging Variables ****/
 struct LogBuffer {
@@ -79,8 +81,56 @@ inline void write_all_leds(u8 state) {
   digitalWrite(WHITE_LED_PIN, state);
 }
 
+constexpr u8 DOUBLE_BUFFER_SUCCESS = 0;
+constexpr u8 DOUBLE_BUFFER_FULL_ERROR = 1;
+constexpr u8 DOUBLE_BUFFER_INDEX_ERROR = 2;
+
+u8 write_to_double_buffer(u8 data[], size_t data_length,
+                          LogBuffer double_buffer[2], u8 *buffer_num,
+                          bool split) {
+  LogBuffer *cur_buffer = &double_buffer[*buffer_num];
+
+  if (cur_buffer->full) {
+    // If current buffer is full then something is wrong
+    return DOUBLE_BUFFER_FULL_ERROR;
+  } else if (cur_buffer->idx + data_length > LOG_BUFFER_SIZE) {
+    // If data_length exceeds remaining space in buffer
+
+    size_t remaining_space = 0;
+    if (split) {
+      // Split data across the two buffers
+      remaining_space = LOG_BUFFER_SIZE - cur_buffer->idx;
+      memcpy(cur_buffer->buffer + cur_buffer->idx, data, remaining_space);
+      cur_buffer->idx = LOG_BUFFER_SIZE;
+    }
+
+    // Switch to the other buffer
+    cur_buffer->full = true;
+
+    *buffer_num = !(*buffer_num);
+    cur_buffer = &double_buffer[*buffer_num];
+
+    if (cur_buffer->idx != 0) {
+      // If new buffer doesn't start at the beginning then something is wrong
+      return DOUBLE_BUFFER_INDEX_ERROR;
+    } else {
+      // Write data to new buffer
+      memcpy(cur_buffer->buffer, data + remaining_space,
+             data_length - remaining_space);
+      cur_buffer->idx += data_length;
+    }
+  } else {
+    // If data fits in current buffer then write it
+    memcpy(cur_buffer->buffer + cur_buffer->idx, data, data_length);
+    cur_buffer->idx += data_length;
+  }
+
+  return DOUBLE_BUFFER_SUCCESS;
+}
+
 // ඞ
 void control_function() {
+  control_state = ControlFunctionState_init_default;
   control_state.cycle_start_us = micros();
   float dt_s = CONTROL_FUNCTION_INTERVAL_MS * SECONDS_PER_MS;
 
@@ -108,67 +158,97 @@ void control_function() {
       control_state.target_rpm - control_state.engine_rpm;
 
   control_state.velocity_command = control_state.engine_rpm_error * ACTUATOR_KP;
-  // actuator.set_velocity(velocity_command);
+
+  actuator.set_velocity(control_state.velocity_command);
 
   // TODO: Profile serialization
-  u8 log_message_data[ControlFunctionState_size + PROTO_DELIMITER_LENGTH];
-  pb_ostream_t ostream =
-      pb_ostream_from_buffer(log_message_data + PROTO_DELIMITER_LENGTH,
-                             sizeof(log_message_data) - PROTO_DELIMITER_LENGTH);
-  pb_encode(&ostream, &ControlFunctionState_msg, &control_state);
 
-  size_t log_message_length = ostream.bytes_written;
+  if (sd_initialized) {
+    // Serialize control state
+    u8 log_message_data[ControlFunctionState_size + PROTO_DELIMITER_LENGTH];
+    pb_ostream_t ostream = pb_ostream_from_buffer(
+        log_message_data + PROTO_DELIMITER_LENGTH,
+        sizeof(log_message_data) - PROTO_DELIMITER_LENGTH);
+    pb_encode(&ostream, &ControlFunctionState_msg, &control_state);
 
-  char prefix[PROTO_DELIMITER_LENGTH + 1];
-  snprintf(prefix, PROTO_DELIMITER_LENGTH + 1, "%01X%04X",
-           PROTO_CONTROL_FUNCTION_MESSAGE_ID, log_message_length);
-  memcpy(log_message_data, prefix, PROTO_DELIMITER_LENGTH);
+    size_t log_message_length = ostream.bytes_written;
 
-  log_message_length += PROTO_DELIMITER_LENGTH;
+    // Create message delimiter
+    char delimiter[PROTO_DELIMITER_LENGTH + 1];
+    snprintf(delimiter, PROTO_DELIMITER_LENGTH + 1, "%01X%04X",
+             PROTO_CONTROL_FUNCTION_MESSAGE_ID, log_message_length);
+    memcpy(log_message_data, delimiter, PROTO_DELIMITER_LENGTH);
 
-  LogBuffer *cur_buffer = &double_buffer[cur_buffer_num];
+    log_message_length += PROTO_DELIMITER_LENGTH;
 
-  if (cur_buffer->full) {
-    Serial.print("Error: BAD! Current buffer is full :(\n");
-  } else if (cur_buffer->idx + log_message_length > LOG_BUFFER_SIZE) {
-    size_t remaining_space = LOG_BUFFER_SIZE - cur_buffer->idx;
-    memcpy(cur_buffer->buffer + cur_buffer->idx, log_message_data,
-           remaining_space);
-    cur_buffer->idx = LOG_BUFFER_SIZE;
-    cur_buffer->full = true;
-
-    cur_buffer_num = !cur_buffer_num;
-    cur_buffer = &double_buffer[cur_buffer_num];
-
-    if (cur_buffer->idx != 0) {
-      Serial.print("Error: Something Very Bad is Happening!\n");
-    } else {
-      memcpy(cur_buffer->buffer + cur_buffer->idx,
-             log_message_data + remaining_space,
-             log_message_length - remaining_space);
-      cur_buffer->idx += log_message_length;
+    // Write to double buffer
+    u8 write_status =
+        write_to_double_buffer(log_message_data, log_message_length,
+                               double_buffer, &cur_buffer_num, false);
+    if (write_status != 0) {
+      Serial.printf("Error: Failed to write to double buffer with error %d\n",
+                    write_status);
     }
-  } else {
-    memcpy(cur_buffer->buffer + cur_buffer->idx, log_message_data,
-           log_message_length);
-    cur_buffer->idx += log_message_length;
+  }
+  control_cycle_count++;
+}
+
+void button_shift_mode() {
+  noInterrupts();
+  u32 cur_engine_count = engine_count;
+  u32 cur_gear_count = gear_count;
+  interrupts();
+
+  bool button_pressed[5] = {false, false, false, false, false};
+  for (size_t i = 0; i < 5; i++) {
+    button_pressed[i] = !digitalRead(BUTTON_PINS[i]) && last_button_state[i];
+  }
+  for (size_t i = 0; i < 5; i++) {
+    last_button_state[i] = digitalRead(BUTTON_PINS[i]);
+  }
+  Serial.printf("State: %d, Velocity: %f, In: %d, Out: %d, Engage: %d\n",
+                odrive.get_axis_state(), odrive.get_vel_estimate(),
+                actuator.get_inbound_limit(), actuator.get_outbound_limit(),
+                actuator.get_engage_limit());
+
+  float velocity = 10.0;
+  if (button_pressed[0]) {
+    odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
+  } else if (button_pressed[1]) {
+    odrive.set_axis_state(ODrive::AXIS_STATE_CLOSED_LOOP_CONTROL);
+  } else if (button_pressed[2]) {
+    actuator.set_velocity(-velocity);
+  } else if (button_pressed[3]) {
+    actuator.set_velocity(0.0);
+  } else if (button_pressed[4]) {
+    actuator.set_velocity(velocity);
   }
 
   control_cycle_count++;
 }
 
 void debug_mode() {
+  float dt_s = CONTROL_FUNCTION_INTERVAL_MS * SECONDS_PER_MS;
+
+  // Grab sensor data
   noInterrupts();
-  u32 cur_engine_count = engine_count;
-  u32 cur_gear_count = gear_count;
+  control_state.engine_count = engine_count;
+  control_state.gear_count = gear_count;
   interrupts();
-  Serial.printf("debug: %d, %d\n", cur_engine_count, cur_gear_count);
-  // Serial.printf("Debug Mode: %d, %d, %d\n", control_cycle_count,
-  // cur_engine_count, cur_gear_count);
-  control_cycle_count++;
+
+  // Calculate instantaneous RPMs
+  float engine_rpm = (control_state.engine_count - last_engine_count) /
+                     ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
+  float gear_rpm = (control_state.gear_count - last_gear_count) /
+                   GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
+
+  Serial.printf("Engine RPM: %f, Gear RPM: %f\n", engine_rpm, gear_rpm);
+  last_engine_count = control_state.engine_count;
+  last_gear_count = control_state.gear_count;
 }
 
 void setup() {
+  // Pin setup
   pinMode(GREEN_LED_PIN, OUTPUT);
   pinMode(YELLOW_LED_PIN, OUTPUT);
   pinMode(RED_LED_PIN, OUTPUT);
@@ -189,18 +269,20 @@ void setup() {
   pinMode(LIMIT_SWITCH_OUT_PIN, INPUT);
   pinMode(LIMIT_SWITCH_ENGAGE_PIN, INPUT);
 
+  // Wait for serial if enabled
   if (wait_for_serial) {
     u32 led_flash_time_ms = 500;
     while (!Serial) {
       write_all_leds(millis() % (led_flash_time_ms * 2) < led_flash_time_ms);
     }
   }
-
   write_all_leds(LOW);
 
+  // Setup RTC
   setSyncProvider(get_teensy3_time);
 
-  if (timeStatus() != timeSet) {
+  bool rtc_set = timeStatus() == timeSet && year() > 2021;
+  if (!rtc_set) {
     Serial.println("Warning: Failed to sync time with RTC");
   }
 
@@ -208,18 +290,25 @@ void setup() {
   sd_initialized = SD.sdfs.begin(SdioConfig(DMA_SDIO));
   if (!sd_initialized) {
     Serial.println("Warning: SD failed to initialize");
-    digitalWrite(RED_LED_PIN, HIGH);
+    digitalWrite(LED_BUILTIN, HIGH);
   } else {
     char log_name[64];
-    snprintf(log_name, sizeof(log_name),
-             "log_%04d-%02d-%02d_%02d-%02d-%02d.bin", year(), month(), day(),
-             hour(), minute(), second());
+    u16 log_name_length = 0;
+
+    if (rtc_set) {
+      log_name_length = snprintf(
+          log_name, sizeof(log_name), "log_%04d-%02d-%02d_%02d-%02d-%02d.bin",
+          year(), month(), day(), hour(), minute(), second());
+    } else {
+      strncpy(log_name, "log_unknown_time.bin", sizeof(log_name));
+      log_name_length = 20;
+    }
 
     if (SD.exists(log_name)) {
       char log_name_duplicate[64];
       for (int log_num = 0; log_num < 1000; log_num++) {
         snprintf(log_name_duplicate, sizeof(log_name_duplicate),
-                 "%.*s_%03d.bin", 23, log_name, log_num);
+                 "%.*s_%03d.bin", log_name_length - 4, log_name, log_num);
         if (!SD.exists(log_name_duplicate)) {
           break;
         }
@@ -227,14 +316,23 @@ void setup() {
       strncpy(log_name, log_name_duplicate, sizeof(log_name));
       log_name[sizeof(log_name) - 1] = '\0';
     }
+    Serial.printf("Info: Logging to %s\n", log_name);
     log_file = SD.open(log_name, FILE_WRITE);
   }
 
+  // Attach sensor interrupts
   attachInterrupt(
       ENGINE_SENSOR_PIN, []() { ++engine_count; }, FALLING);
   attachInterrupt(
       GEARTOOTH_SENSOR_PIN, []() { ++gear_count; }, FALLING);
+  attachInterrupt(
+      LIMIT_SWITCH_IN_PIN,
+      []() { odrive.set_axis_state(ODrive::AXIS_STATE_IDLE); }, FALLING);
+  attachInterrupt(
+      LIMIT_SWITCH_OUT_PIN,
+      []() { odrive.set_axis_state(ODrive::AXIS_STATE_IDLE); }, FALLING);
 
+  // Initialize CAN bus
   flexcan_bus.begin();
   flexcan_bus.setBaudRate(FLEXCAN_BAUD_RATE);
   flexcan_bus.setMaxMB(FLEXCAN_MAX_MAILBOX);
@@ -242,12 +340,18 @@ void setup() {
   flexcan_bus.enableFIFOInterrupt();
   flexcan_bus.onReceive(can_parse);
 
+  // Set interrupt priorities
   // TODO: Figure out proper ISR priority levels
-  NVIC_SET_PRIORITY(IRQ_CAN1, 1);
+  // NVIC_SET_PRIORITY(IRQ_GPIO6789, 16);
+  timer.priority(255);
 
+  // Attach timer interrupt
   switch (operating_mode) {
   case OperatingMode::NORMAL:
     timer.begin(control_function, CONTROL_FUNCTION_INTERVAL_MS * 1e3);
+    break;
+  case OperatingMode::BUTTON_SHIFT:
+    timer.begin(button_shift_mode, CONTROL_FUNCTION_INTERVAL_MS * 1e3);
     break;
   case OperatingMode::DEBUG:
     timer.begin(debug_mode, CONTROL_FUNCTION_INTERVAL_MS * 1e3);
@@ -256,11 +360,17 @@ void setup() {
 }
 
 void loop() {
+  // LED indicators
+  digitalWrite(GREEN2_LED_PIN, actuator.get_outbound_limit());
+  digitalWrite(WHITE_LED_PIN, actuator.get_inbound_limit());
+
+  // Flush SD card if buffer full
   if (sd_initialized || log_file) {
     for (size_t buffer_num = 0; buffer_num < 2; buffer_num++) {
       if (double_buffer[buffer_num].full) {
         Serial.printf("Flush: Writing buffer %d to SD\n", buffer_num);
-        log_file.write(double_buffer[buffer_num].buffer, LOG_BUFFER_SIZE);
+        log_file.write(double_buffer[buffer_num].buffer,
+                       double_buffer[buffer_num].idx);
         log_file.flush();
         double_buffer[buffer_num].full = false;
         double_buffer[buffer_num].idx = 0;

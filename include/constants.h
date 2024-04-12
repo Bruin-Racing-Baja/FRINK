@@ -29,10 +29,13 @@ constexpr float SECONDARY_TO_WHEEL_RATIO =
     ((46.0 / 17.0) * (56.0 / 19.0)); // ~7.975
 constexpr float WHEEL_TO_SECONDARY_RATIO =
     (1.0 / SECONDARY_TO_WHEEL_RATIO); // ~0.1253
-//
+
 constexpr float WHEEL_DIAMETER_INCH = 23.0; // inch
 constexpr float WHEEL_MPH_PER_RPM =
     (WHEEL_DIAMETER_INCH * M_PI) / (FEET_PER_MILE * INCH_PER_FEET); // mph / rpm
+
+// ODrive
+constexpr u8 ODRIVE_NODE_ID = 0x3;
 
 // Actuator
 constexpr float ACTUATOR_PITCH_MM = 5.0; // mm / rot
@@ -44,7 +47,7 @@ constexpr float ACTUATOR_BELT_POS_INCH = 1.0;     // inch
 // Control Function
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 constexpr float ENGINE_TARGET_RPM = 3000.0;      // rpm
-constexpr float ACTUATOR_KP = 0.01;
+constexpr float ACTUATOR_KP = 0.035;
 
 // Teensy Pins
 constexpr u8 GREEN_LED_PIN = 7;
@@ -53,9 +56,9 @@ constexpr u8 RED_LED_PIN = 9;
 constexpr u8 WHITE_LED_PIN = 29;
 constexpr u8 GREEN2_LED_PIN = 28;
 
-constexpr u8 LIMIT_SWITCH_IN_PIN = 25;
-constexpr u8 LIMIT_SWITCH_OUT_PIN = 26;
-constexpr u8 LIMIT_SWITCH_ENGAGE_PIN = 27;
+constexpr u8 LIMIT_SWITCH_IN_PIN = 27;
+constexpr u8 LIMIT_SWITCH_OUT_PIN = 25;
+constexpr u8 LIMIT_SWITCH_ENGAGE_PIN = 26;
 
 constexpr u8 BUTTON_PINS[] = {2, 3, 4, 5, 6};
 
@@ -77,6 +80,6 @@ constexpr size_t LOG_BUFFER_SIZE = 8192; // 12288 to be safe
 constexpr u8 PROTO_HEADER_MESSAGE_ID = 0x00;
 constexpr u8 PROTO_CONTROL_FUNCTION_MESSAGE_ID = 0x01;
 
-constexpr u8 PROTO_DELIMITER_LENGTH = 5;
+constexpr size_t PROTO_DELIMITER_LENGTH = 5;
 
 #endif
