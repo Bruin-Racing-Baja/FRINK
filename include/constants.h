@@ -80,6 +80,7 @@ constexpr size_t LOG_BUFFER_SIZE = 8192; // 12288 to be safe
 constexpr u8 PROTO_HEADER_MESSAGE_ID = 0x00;
 constexpr u8 PROTO_CONTROL_FUNCTION_MESSAGE_ID = 0x01;
 
+constexpr size_t MESSAGE_BUFFER_SIZE = 512;
 constexpr size_t PROTO_DELIMITER_LENGTH = 5;
 
 #endif

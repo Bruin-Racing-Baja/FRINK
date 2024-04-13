@@ -68,6 +68,8 @@ struct LogBuffer {
 u8 cur_buffer_num = 0;
 LogBuffer double_buffer[2];
 
+u8 message_buffer[MESSAGE_BUFFER_SIZE];
+
 /**** Global Functions ****/
 time_t get_teensy3_time() { return Teensy3Clock.get(); }
 
@@ -79,6 +81,26 @@ inline void write_all_leds(u8 state) {
   digitalWrite(RED_LED_PIN, state);
   digitalWrite(GREEN2_LED_PIN, state);
   digitalWrite(WHITE_LED_PIN, state);
+}
+
+size_t encode_pb_message(u8 buffer[], size_t buffer_length, u8 id,
+                         const pb_msgdesc_t *fields,
+                         const void *message_struct) {
+  // Serialize message
+  pb_ostream_t ostream = pb_ostream_from_buffer(
+      buffer + PROTO_DELIMITER_LENGTH, buffer_length - PROTO_DELIMITER_LENGTH);
+  pb_encode(&ostream, fields, message_struct);
+
+  size_t message_length = ostream.bytes_written;
+
+  // Create message delimiter
+  char delimiter[PROTO_DELIMITER_LENGTH + 1];
+  snprintf(delimiter, PROTO_DELIMITER_LENGTH + 1, "%01X%04X", id,
+           message_length);
+  memcpy(buffer, delimiter, PROTO_DELIMITER_LENGTH);
+  message_length += PROTO_DELIMITER_LENGTH;
+
+  return message_length;
 }
 
 constexpr u8 DOUBLE_BUFFER_SUCCESS = 0;
@@ -161,30 +183,22 @@ void control_function() {
 
   actuator.set_velocity(control_state.velocity_command);
 
-  // TODO: Profile serialization
+  control_state.inbound_limit_switch = actuator.get_inbound_limit();
+  control_state.outbound_limit_switch = actuator.get_outbound_limit();
+  control_state.engage_limit_switch = actuator.get_engage_limit();
+  control_state.active_errors = odrive.get_disarm_reason();
+  control_state.disarm_reason = odrive.get_active_errors();
+  control_state.last_heartbeat_ms = odrive.get_time_since_heartbeat_ms();
 
   if (sd_initialized) {
     // Serialize control state
-    u8 log_message_data[ControlFunctionState_size + PROTO_DELIMITER_LENGTH];
-    pb_ostream_t ostream = pb_ostream_from_buffer(
-        log_message_data + PROTO_DELIMITER_LENGTH,
-        sizeof(log_message_data) - PROTO_DELIMITER_LENGTH);
-    pb_encode(&ostream, &ControlFunctionState_msg, &control_state);
-
-    size_t log_message_length = ostream.bytes_written;
-
-    // Create message delimiter
-    char delimiter[PROTO_DELIMITER_LENGTH + 1];
-    snprintf(delimiter, PROTO_DELIMITER_LENGTH + 1, "%01X%04X",
-             PROTO_CONTROL_FUNCTION_MESSAGE_ID, log_message_length);
-    memcpy(log_message_data, delimiter, PROTO_DELIMITER_LENGTH);
-
-    log_message_length += PROTO_DELIMITER_LENGTH;
+    size_t message_length = encode_pb_message(
+        message_buffer, MESSAGE_BUFFER_SIZE, PROTO_CONTROL_FUNCTION_MESSAGE_ID,
+        &ControlFunctionState_msg, &control_state);
 
     // Write to double buffer
-    u8 write_status =
-        write_to_double_buffer(log_message_data, log_message_length,
-                               double_buffer, &cur_buffer_num, false);
+    u8 write_status = write_to_double_buffer(
+        message_buffer, message_length, double_buffer, &cur_buffer_num, false);
     if (write_status != 0) {
       Serial.printf("Error: Failed to write to double buffer with error %d\n",
                     write_status);
@@ -290,7 +304,7 @@ void setup() {
   sd_initialized = SD.sdfs.begin(SdioConfig(DMA_SDIO));
   if (!sd_initialized) {
     Serial.println("Warning: SD failed to initialize");
-    digitalWrite(LED_BUILTIN, HIGH);
+    digitalWrite(RED_LED_PIN, HIGH);
   } else {
     char log_name[64];
     u16 log_name_length = 0;
@@ -365,10 +379,10 @@ void loop() {
   digitalWrite(WHITE_LED_PIN, actuator.get_inbound_limit());
 
   // Flush SD card if buffer full
-  if (sd_initialized || log_file) {
+  if (sd_initialized && log_file) {
     for (size_t buffer_num = 0; buffer_num < 2; buffer_num++) {
       if (double_buffer[buffer_num].full) {
-        Serial.printf("Flush: Writing buffer %d to SD\n", buffer_num);
+        Serial.printf("Info: Writing buffer %d to SD\n", buffer_num);
         log_file.write(double_buffer[buffer_num].buffer,
                        double_buffer[buffer_num].idx);
         log_file.flush();
