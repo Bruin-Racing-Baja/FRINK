@@ -58,7 +58,7 @@ u8 ODrive::send_empty_command(u32 cmd_id, bool remote) {
  * @param msg CAN message to parse
  */
 void ODrive::parse_message(const CAN_message_t &msg) {
-  u32 parsed_node_id = msg.id >> 5;
+  u32 parsed_node_id = (msg.id >> 5) & 0x3F;
 
   if (parsed_node_id != node_id) {
     return;
@@ -78,8 +78,8 @@ void ODrive::parse_message(const CAN_message_t &msg) {
   case CAN_GET_ERRORS:
     memcpy(&active_errors, msg.buf, 4);
     memcpy(&disarm_reason, msg.buf + 4, 4);
+    break;
   case CAN_GET_ENCODER_ESTIMATES:
-    // Cyclic message; sent every 10ms
     memcpy(&pos_estimate, msg.buf, 4);
     memcpy(&vel_estimate, msg.buf + 4, 4);
     break;
@@ -127,6 +127,8 @@ u32 ODrive::get_axis_state() { return axis_state; }
 u32 ODrive::get_active_errors() { return active_errors; }
 
 u32 ODrive::get_disarm_reason() { return disarm_reason; }
+
+u8 ODrive::get_procedure_result() { return procedure_result; }
 
 float ODrive::get_vel_estimate() { return vel_estimate; }
 

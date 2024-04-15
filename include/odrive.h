@@ -79,6 +79,7 @@ public:
   u32 get_axis_state();
   u32 get_active_errors();
   u32 get_disarm_reason();
+  u8 get_procedure_result();
   float get_vel_estimate();
   float get_pos_estimate();
   float get_iq_setpoint();

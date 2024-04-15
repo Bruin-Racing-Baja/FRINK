@@ -26,6 +26,7 @@ enum class OperatingMode {
   NORMAL,
   BUTTON_SHIFT,
   DEBUG,
+  NONE,
 };
 
 /**** Operation Flags ****/
@@ -71,6 +72,11 @@ LogBuffer double_buffer[2];
 u8 message_buffer[MESSAGE_BUFFER_SIZE];
 
 /**** Global Functions ****/
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define CLAMP(x, low, high) (MIN(MAX(x, low), high))
+
 time_t get_teensy3_time() { return Teensy3Clock.get(); }
 
 void can_parse(const CAN_message_t &msg) { odrive.parse_message(msg); }
@@ -165,6 +171,8 @@ void control_function() {
   // Calculate instantaneous RPMs
   control_state.engine_rpm = (control_state.engine_count - last_engine_count) /
                              ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
+
+  // TODO: Fix gear RPM calculation
   float gear_rpm = (control_state.gear_count - last_gear_count) /
                    GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
 
@@ -177,18 +185,32 @@ void control_function() {
   // Controller
   control_state.target_rpm = ENGINE_TARGET_RPM;
   control_state.engine_rpm_error =
-      control_state.target_rpm - control_state.engine_rpm;
+      control_state.engine_rpm - control_state.target_rpm;
 
   control_state.velocity_command = control_state.engine_rpm_error * ACTUATOR_KP;
+  control_state.velocity_command =
+      CLAMP(control_state.velocity_command, -ODRIVE_VELOCITY_LIMIT,
+            ODRIVE_VELOCITY_LIMIT);
 
   actuator.set_velocity(control_state.velocity_command);
 
+  // Populate control state
   control_state.inbound_limit_switch = actuator.get_inbound_limit();
   control_state.outbound_limit_switch = actuator.get_outbound_limit();
   control_state.engage_limit_switch = actuator.get_engage_limit();
-  control_state.active_errors = odrive.get_disarm_reason();
-  control_state.disarm_reason = odrive.get_active_errors();
+
   control_state.last_heartbeat_ms = odrive.get_time_since_heartbeat_ms();
+  control_state.disarm_reason = odrive.get_disarm_reason();
+  control_state.active_errors = odrive.get_active_errors();
+  control_state.procedure_result = odrive.get_procedure_result();
+
+  control_state.bus_current = odrive.get_bus_current();
+  control_state.bus_voltage = odrive.get_bus_voltage();
+  control_state.iq_measured = odrive.get_iq_measured();
+  control_state.iq_setpoint = odrive.get_iq_setpoint();
+
+  control_state.velocity_estimate = odrive.get_vel_estimate();
+  control_state.position_estimate = odrive.get_pos_estimate();
 
   if (sd_initialized) {
     // Serialize control state
@@ -220,6 +242,7 @@ void button_shift_mode() {
   for (size_t i = 0; i < 5; i++) {
     last_button_state[i] = digitalRead(BUTTON_PINS[i]);
   }
+
   Serial.printf("State: %d, Velocity: %f, In: %d, Out: %d, Engage: %d\n",
                 odrive.get_axis_state(), odrive.get_vel_estimate(),
                 actuator.get_inbound_limit(), actuator.get_outbound_limit(),
@@ -339,12 +362,17 @@ void setup() {
       ENGINE_SENSOR_PIN, []() { ++engine_count; }, FALLING);
   attachInterrupt(
       GEARTOOTH_SENSOR_PIN, []() { ++gear_count; }, FALLING);
+
+  // Attach limit switch interrupts
   attachInterrupt(
-      LIMIT_SWITCH_IN_PIN,
-      []() { odrive.set_axis_state(ODrive::AXIS_STATE_IDLE); }, FALLING);
+      LIMIT_SWITCH_IN_PIN, []() { odrive.set_input_vel(0, 0); }, FALLING);
   attachInterrupt(
       LIMIT_SWITCH_OUT_PIN,
-      []() { odrive.set_axis_state(ODrive::AXIS_STATE_IDLE); }, FALLING);
+      []() {
+        odrive.set_input_vel(0, 0);
+        odrive.set_absolute_position(0);
+      },
+      FALLING);
 
   // Initialize CAN bus
   flexcan_bus.begin();
@@ -356,7 +384,7 @@ void setup() {
 
   // Set interrupt priorities
   // TODO: Figure out proper ISR priority levels
-  // NVIC_SET_PRIORITY(IRQ_GPIO6789, 16);
+  NVIC_SET_PRIORITY(IRQ_GPIO6789, 16);
   timer.priority(255);
 
   // Attach timer interrupt
@@ -369,6 +397,8 @@ void setup() {
     break;
   case OperatingMode::DEBUG:
     timer.begin(debug_mode, CONTROL_FUNCTION_INTERVAL_MS * 1e3);
+    break;
+  case OperatingMode::NONE:
     break;
   }
 }

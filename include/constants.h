@@ -36,6 +36,7 @@ constexpr float WHEEL_MPH_PER_RPM =
 
 // ODrive
 constexpr u8 ODRIVE_NODE_ID = 0x3;
+constexpr float ODRIVE_VELOCITY_LIMIT = 20.0;
 
 // Actuator
 constexpr float ACTUATOR_PITCH_MM = 5.0; // mm / rot
