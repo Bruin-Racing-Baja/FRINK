@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <types.h>
 
-// Acknowledgements to Getty & Tyler :)
+// Acknowledgements to Tyler, Drew, Getty, et al. :)
 
 enum class OperatingMode {
   NORMAL,
