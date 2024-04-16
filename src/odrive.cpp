@@ -1,3 +1,4 @@
+#include "constants.h"
 #include <FlexCAN_T4.h>
 #include <odrive.h>
 
@@ -6,11 +7,16 @@ ODrive::ODrive(FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus,
     : flexcan_bus(flexcan_bus), node_id(node_id) {}
 
 /**
- * @brief Initialize the CAN bus for communication with the ODrive
+ * @brief Initialize the ODrive
  * @param parse Pointer to function that parses received messages
  * @return 0 if successful
  */
-u8 ODrive::init() { return 0; }
+u8 ODrive::init() {
+  if (set_limits(ODRIVE_VEL_LIMIT, ODRIVE_CURRENT_SOFT_MAX) != 0) {
+    return INIT_CAN_ERROR;
+  }
+  return INIT_SUCCESS;
+}
 
 /**
  * @brief Send a command
@@ -190,10 +196,10 @@ u8 ODrive::set_input_torque(float input_torque) {
   return send_command(CAN_SET_INPUT_TORQUE, false, buf);
 }
 
-u8 ODrive::set_limits(float current_limit, float vel_limit) {
+u8 ODrive::set_limits(float vel_limit, float current_soft_max) {
   u8 buf[8] = {0};
-  memcpy(buf, &current_limit, 4);
-  memcpy(buf + 4, &vel_limit, 4);
+  memcpy(buf, &vel_limit, 4);
+  memcpy(buf + 4, &current_soft_max, 4);
   return send_command(CAN_SET_LIMITS, false, buf);
 }
 

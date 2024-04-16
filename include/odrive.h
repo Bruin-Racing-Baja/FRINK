@@ -12,6 +12,21 @@
 class ODrive {
 
 public:
+  static const u32 CONTROL_MODE_VOLTAGE_CONTROL = 0x0;
+  static const u32 CONTROL_MODE_TORQUE_CONTROL = 0x1;
+  static const u32 CONTROL_MODE_VELOCITY_CONTROL = 0x2;
+  static const u32 CONTROL_MODE_POSITION_CONTROL = 0x3;
+
+  static const u32 INPUT_MODE_INACTIVE = 0x0;
+  static const u32 INPUT_MODE_PASSTHROUGH = 0x1;
+  static const u32 INPUT_MODE_VEL_RAMP = 0x2;
+  static const u32 INPUT_MODE_POS_FILTER = 0x3;
+  static const u32 INPUT_MODE_MIX_CHANNELS = 0x4;
+  static const u32 INPUT_MODE_TRAP_TRAJ = 0x5;
+  static const u32 INPUT_MODE_TORQUE_RAMP = 0x6;
+  static const u32 INPUT_MODE_MIRROR = 0x7;
+  static const u32 INPUT_MODE_TUNING = 0x8;
+
   static const u32 AXIS_STATE_UNDEFINED = 0x0;
   static const u32 AXIS_STATE_IDLE = 0x1;
   static const u32 AXIS_STATE_STARTUP_SEQUENCE = 0x2;
@@ -56,6 +71,9 @@ public:
   static const u32 CAN_GET_POWERS = 0x01d;
   static const u32 CAN_ENTER_DFU_MODE = 0x01f;
 
+  static const u8 INIT_SUCCESS = 0;
+  static const u8 INIT_CAN_ERROR = 1;
+
   static const u8 CMD_SUCCESS = 0;
   static const u8 CMD_ERROR_INVALID_AXIS = 1;
   static const u8 CMD_ERROR_INVALID_COMMAND = 2;
@@ -97,7 +115,7 @@ public:
   u8 set_input_pos(float input_pos, i16 vel_ff, i16 torque_ff);
   u8 set_input_vel(float input_vel, float torque_ff);
   u8 set_input_torque(float input_torque);
-  u8 set_limits(float current_limit, float vel_limit);
+  u8 set_limits(float vel_limit, float current_soft_max);
   u8 set_traj_vel_limit(float traj_vel_limit);
   u8 set_traj_accel_limits(float traj_accel_limit, float traj_decel_limit);
   u8 set_traj_intertia(float traj_inertia);
