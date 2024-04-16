@@ -14,20 +14,28 @@ public:
   static const u8 SET_VELOCITY_OUT_LIMIT_SWITCH_ERROR = 1;
   static const u8 SET_VELOCITY_CAN_ERROR = 2;
 
-  static const u8 INDEX_SEARCH_SUCCCESS = 0;
-  static const u8 INDEX_SEARCH_CAN_ERROR = 1;
-  static const u8 INDEX_SEARCH_FAILED = 2;
+  static const u8 SET_POSITION_SUCCCESS = 0;
+  static const u8 SET_POSITION_LIMIT_SWITCH_ERROR = 1;
+  static const u8 SET_POSITION_CAN_ERROR = 2;
+
+  static const u8 HOME_SUCCCESS = 0;
+  static const u8 HOME_CAN_ERROR = 1;
+  static const u8 HOME_FAILED = 2;
 
   Actuator(ODrive *odrive);
 
   u8 init();
-  u8 encoder_index_search();
-  u8 set_velocity(float velocity_offset);
+  u8 home_encoder();
+
+  u8 set_velocity(float velocity);
+  u8 set_position(float position);
+
   bool get_inbound_limit();
   bool get_outbound_limit();
   bool get_engage_limit();
 
 private:
+  bool velocity_mode = true;
   ODrive *odrive;
 };
 
