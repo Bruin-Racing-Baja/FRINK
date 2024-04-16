@@ -191,6 +191,9 @@ void control_function() {
   control_state.velocity_command =
       CLAMP(control_state.velocity_command, -ODRIVE_VELOCITY_LIMIT,
             ODRIVE_VELOCITY_LIMIT);
+  if(control_state.engine_rpm < 2400) {
+    control_state.velocity_command = 0;
+  }
 
   actuator.set_velocity(control_state.velocity_command);
 
