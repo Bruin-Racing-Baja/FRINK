@@ -6,6 +6,9 @@
 
 #define dancing 13
 
+#define COUNT_OF(x)                                                            \
+  ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
+
 // Units
 constexpr float SECONDS_PER_MINUTE = 60.0; // s / min
 constexpr float MS_PER_SECOND = 1.0e3;     // ms / s
@@ -36,19 +39,32 @@ constexpr float WHEEL_MPH_PER_RPM =
 
 // ODrive
 constexpr u8 ODRIVE_NODE_ID = 0x3;
-constexpr float ODRIVE_VELOCITY_LIMIT = 20.0;
+constexpr float ODRIVE_VEL_LIMIT = 40.0;        // rot / s
+constexpr float ODRIVE_CURRENT_SOFT_MAX = 30.0; // A
 
 // Actuator
-constexpr float ACTUATOR_PITCH_MM = 5.0; // mm / rot
-constexpr float ACTUATOR_PITCH_INCH =
-    ACTUATOR_PITCH_MM * INCHES_PER_MM;            // inch / rot
-constexpr float ACTUATOR_OUTBOUND_POS_INCH = 3.5; // inch
-constexpr float ACTUATOR_BELT_POS_INCH = 1.0;     // inch
+// NOTE: Pitch is distance / rotation
+constexpr float ACTUATOR_PITCH_MM = 5.0;                      // mm / rot
+constexpr float ACTUATOR_PITCH_CM = ACTUATOR_PITCH_MM / 10.0; // cm / rot
+
+constexpr float ACTUATOR_ENGAGE_POS_ROT = 2.0;                // rot
+constexpr float ACTUATOR_INBOUND_POS_ROT = 14.3;              // rot
+constexpr float ACTUATOR_ENGAGE_POS_CM =
+    ACTUATOR_ENGAGE_POS_ROT * ACTUATOR_PITCH_CM; // cm
+constexpr float ACTUATOR_INBOUND_POS_CM =
+    ACTUATOR_INBOUND_POS_ROT * ACTUATOR_PITCH_CM; // cm
+//
+constexpr float ACTUATOR_HOME_VELOCITY = 4.0;     // rot / s
 
 // Control Function
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
-constexpr float ENGINE_TARGET_RPM = 3000.0;      // rpm
+constexpr float ENGINE_TARGET_RPM = 2300.0;      // rpm
 constexpr float ACTUATOR_KP = 0.035;
+
+constexpr float ENGINE_RPM_FILTER_B[] = {0.09162837, 0.09162837};
+constexpr float ENGINE_RPM_FILTER_A[] = {1.0, -0.81674327};
+constexpr size_t ENGINE_RPM_FILTER_M = COUNT_OF(ENGINE_RPM_FILTER_B);
+constexpr size_t ENGINE_RPM_FILTER_N = COUNT_OF(ENGINE_RPM_FILTER_A);
 
 // Teensy Pins
 constexpr u8 GREEN_LED_PIN = 7;
@@ -76,7 +92,7 @@ constexpr u32 FLEXCAN_MAX_MAILBOX = 16;
 // Logging
 // bytes_per_cycle * cycle_freq * time_to_flush_sd * safety_factor
 // 100 * 100 * 0.4 * 2 = 8000
-constexpr size_t LOG_BUFFER_SIZE = 8192; // 12288 to be safe
+constexpr size_t LOG_BUFFER_SIZE = 8192;
 
 constexpr u8 PROTO_HEADER_MESSAGE_ID = 0x00;
 constexpr u8 PROTO_CONTROL_FUNCTION_MESSAGE_ID = 0x01;

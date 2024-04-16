@@ -1,8 +1,8 @@
 #include <Arduino.h>
+#include <FlexCAN_T4.h>
 #include <actuator.h>
 #include <constants.h>
-
-#include <FlexCAN_T4.h>
+#include <iirfilter.h>
 // clang-format off
 #include <SPI.h>
 // clang-format on
@@ -31,7 +31,7 @@ enum class OperatingMode {
 
 /**** Operation Flags ****/
 constexpr OperatingMode operating_mode = OperatingMode::NORMAL;
-constexpr bool wait_for_serial = true;
+constexpr bool wait_for_serial = false;
 
 /**** Global Objects ****/
 IntervalTimer timer;
@@ -39,6 +39,8 @@ FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> flexcan_bus;
 ODrive odrive(&flexcan_bus, ODRIVE_NODE_ID);
 Actuator actuator(&odrive);
 File log_file;
+IIRFilter engine_rpm_filter(ENGINE_RPM_FILTER_B, ENGINE_RPM_FILTER_A,
+                            ENGINE_RPM_FILTER_M, ENGINE_RPM_FILTER_N);
 
 /**** Status Variables ****/
 bool sd_initialized = false;
@@ -72,11 +74,6 @@ LogBuffer double_buffer[2];
 u8 message_buffer[MESSAGE_BUFFER_SIZE];
 
 /**** Global Functions ****/
-
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define CLAMP(x, low, high) (MIN(MAX(x, low), high))
-
 time_t get_teensy3_time() { return Teensy3Clock.get(); }
 
 void can_parse(const CAN_message_t &msg) { odrive.parse_message(msg); }
@@ -156,6 +153,23 @@ u8 write_to_double_buffer(u8 data[], size_t data_length,
   return DOUBLE_BUFFER_SUCCESS;
 }
 
+void on_outbound_limit_switch() {
+  // TODO: Should we reset position each time?
+  odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
+}
+
+void on_engage_limit_switch() {
+  // TODO: Implement better slowdown
+  float vel_estimate = odrive.get_vel_estimate();
+  if (vel_estimate < 0) {
+    odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
+  }
+}
+
+void on_inbound_limit_switch() {
+  odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
+}
+
 // ඞ
 void control_function() {
   control_state = ControlFunctionState_init_default;
@@ -171,6 +185,8 @@ void control_function() {
   // Calculate instantaneous RPMs
   control_state.engine_rpm = (control_state.engine_count - last_engine_count) /
                              ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
+  control_state.filtered_engine_rpm =
+      engine_rpm_filter.update(control_state.engine_rpm);
 
   // TODO: Fix gear RPM calculation
   float gear_rpm = (control_state.gear_count - last_gear_count) /
@@ -185,17 +201,19 @@ void control_function() {
   // Controller
   control_state.target_rpm = ENGINE_TARGET_RPM;
   control_state.engine_rpm_error =
-      control_state.engine_rpm - control_state.target_rpm;
+      control_state.filtered_engine_rpm - control_state.target_rpm;
 
-  control_state.velocity_command = control_state.engine_rpm_error * ACTUATOR_KP;
-  control_state.velocity_command =
-      CLAMP(control_state.velocity_command, -ODRIVE_VELOCITY_LIMIT,
-            ODRIVE_VELOCITY_LIMIT);
-  if(control_state.engine_rpm < 2400) {
-    control_state.velocity_command = 0;
+  control_state.velocity_mode = control_state.filtered_engine_rpm > 2400;
+  control_state.velocity_mode = true;
+
+  if (control_state.velocity_mode) {
+    control_state.velocity_command =
+        control_state.engine_rpm_error * ACTUATOR_KP;
+    actuator.set_velocity(control_state.velocity_command);
+  } else {
+    control_state.position_command = ACTUATOR_ENGAGE_POS_CM / ACTUATOR_PITCH_CM;
+    actuator.set_position(control_state.position_command);
   }
-
-  actuator.set_velocity(control_state.velocity_command);
 
   // Populate control state
   control_state.inbound_limit_switch = actuator.get_inbound_limit();
@@ -367,15 +385,9 @@ void setup() {
       GEARTOOTH_SENSOR_PIN, []() { ++gear_count; }, FALLING);
 
   // Attach limit switch interrupts
-  attachInterrupt(
-      LIMIT_SWITCH_IN_PIN, []() { odrive.set_input_vel(0, 0); }, FALLING);
-  attachInterrupt(
-      LIMIT_SWITCH_OUT_PIN,
-      []() {
-        odrive.set_input_vel(0, 0);
-        odrive.set_absolute_position(0);
-      },
-      FALLING);
+  attachInterrupt(LIMIT_SWITCH_OUT_PIN, on_outbound_limit_switch, FALLING);
+  attachInterrupt(LIMIT_SWITCH_ENGAGE_PIN, on_engage_limit_switch, FALLING);
+  attachInterrupt(LIMIT_SWITCH_IN_PIN, on_inbound_limit_switch, FALLING);
 
   // Initialize CAN bus
   flexcan_bus.begin();
@@ -384,6 +396,22 @@ void setup() {
   flexcan_bus.enableFIFO();
   flexcan_bus.enableFIFOInterrupt();
   flexcan_bus.onReceive(can_parse);
+
+  // Initialize subsystems
+  u8 odrive_status_code = odrive.init();
+  if (odrive_status_code != 0) {
+    Serial.printf("Error: ODrive failed to initialize with error %d\n",
+                  odrive_status_code);
+  }
+
+  u8 actuator_status_code = actuator.init();
+  if (actuator_status_code != 0) {
+    Serial.printf("Error: Actuator failed to initialize with error %d\n",
+                  actuator_status_code);
+  }
+
+  // Run actuator homing sequence
+  actuator.home_encoder();
 
   // Set interrupt priorities
   // TODO: Figure out proper ISR priority levels
