@@ -49,6 +49,11 @@ u32 control_cycle_count = 0;
 
 volatile u32 engine_count = 0;
 volatile u32 gear_count = 0;
+volatile u32 time_diff = 0;
+volatile u32 last_time = 0;
+volatile u32 curr_time = 0;
+u32 inter_count = 0;
+u32 num_interval = 10;
 u32 last_engine_count = 0;
 u32 last_gear_count = 0;
 
@@ -173,9 +178,16 @@ void control_function() {
                              ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
 
   // TODO: Fix gear RPM calculation
+  // float gear_rpm = (control_state.gear_count - last_gear_count) /
+  //                  GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
+  // change in count / (6 roations per minute)
   float gear_rpm = (control_state.gear_count - last_gear_count) /
-                   GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
-
+                     ENGINE_COUNTS_PER_ROT / time_diff * SECONDS_PER_MS;
+  // if want larger time intervals based on time between each tick
+  // if (inter_count == num_interval) {
+  //   float gear_rpm = (control_state.gear_count - last_gear_count) /
+  //                    ENGINE_COUNTS_PER_ROT / time_diff * SECONDS_PER_MS;
+  // }
   last_engine_count = control_state.engine_count;
   last_gear_count = control_state.gear_count;
 
@@ -276,6 +288,7 @@ void debug_mode() {
   // Calculate instantaneous RPMs
   float engine_rpm = (control_state.engine_count - last_engine_count) /
                      ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
+  
   float gear_rpm = (control_state.gear_count - last_gear_count) /
                    GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
 
@@ -360,8 +373,11 @@ void setup() {
   // Attach sensor interrupts
   attachInterrupt(
       ENGINE_SENSOR_PIN, []() { ++engine_count; }, FALLING);
+      //calculate time btwn each tick in interrupt
+      
   attachInterrupt(
-      GEARTOOTH_SENSOR_PIN, []() { ++gear_count; }, FALLING);
+      GEARTOOTH_SENSOR_PIN, []() { curr_time = millis(); ++gear_count; time_diff = curr_time - last_time;
+      last_time = curr_time; ++inter_count;}, FALLING);
 
   // Attach limit switch interrupts
   attachInterrupt(
