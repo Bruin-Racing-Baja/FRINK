@@ -182,7 +182,7 @@ void control_function() {
   //                  GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
   // change in count / (6 roations per minute)
   float gear_rpm = (control_state.gear_count - last_gear_count) /
-                     ENGINE_COUNTS_PER_ROT / time_diff * SECONDS_PER_MS;
+                     ENGINE_COUNTS_PER_ROT / time_diff * SECONDS_PER_MS * SECONDS_PER_MINUTE;
   // if want larger time intervals based on time between each tick
   // if (inter_count == num_interval) {
   //   float gear_rpm = (control_state.gear_count - last_gear_count) /
