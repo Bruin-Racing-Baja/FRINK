@@ -47,14 +47,14 @@ constexpr float ODRIVE_CURRENT_SOFT_MAX = 30.0; // A
 constexpr float ACTUATOR_PITCH_MM = 5.0;                      // mm / rot
 constexpr float ACTUATOR_PITCH_CM = ACTUATOR_PITCH_MM / 10.0; // cm / rot
 
-constexpr float ACTUATOR_ENGAGE_POS_ROT = 2.0;                // rot
-constexpr float ACTUATOR_INBOUND_POS_ROT = 14.3;              // rot
+constexpr float ACTUATOR_ENGAGE_POS_ROT = 2.0;   // rot
+constexpr float ACTUATOR_INBOUND_POS_ROT = 14.3; // rot
 constexpr float ACTUATOR_ENGAGE_POS_CM =
     ACTUATOR_ENGAGE_POS_ROT * ACTUATOR_PITCH_CM; // cm
 constexpr float ACTUATOR_INBOUND_POS_CM =
     ACTUATOR_INBOUND_POS_ROT * ACTUATOR_PITCH_CM; // cm
-//
 constexpr float ACTUATOR_HOME_VELOCITY = 4.0;     // rot / s
+constexpr float ACTUATOR_HOME_TIMEOUT_MS = 1000;  // ms
 
 // Control Function
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms

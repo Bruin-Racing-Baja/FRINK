@@ -4,7 +4,9 @@
 
 ODrive::ODrive(FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus,
                u32 node_id)
-    : flexcan_bus(flexcan_bus), node_id(node_id) {}
+    : flexcan_bus(flexcan_bus), node_id(node_id) {
+  last_heartbeat_ms = 0;
+}
 
 /**
  * @brief Initialize the ODrive

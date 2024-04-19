@@ -20,12 +20,12 @@ public:
 
   static const u8 HOME_SUCCCESS = 0;
   static const u8 HOME_CAN_ERROR = 1;
-  static const u8 HOME_FAILED = 2;
+  static const u8 HOME_TIMEOUT_ERROR = 2;
 
   Actuator(ODrive *odrive);
 
   u8 init();
-  u8 home_encoder();
+  u8 home_encoder(u32 timeout_ms);
 
   u8 set_velocity(float velocity);
   u8 set_position(float position);

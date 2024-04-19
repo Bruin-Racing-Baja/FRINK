@@ -30,8 +30,9 @@ enum class OperatingMode {
 };
 
 /**** Operation Flags ****/
-constexpr OperatingMode operating_mode = OperatingMode::NORMAL;
+constexpr OperatingMode operating_mode = OperatingMode::BUTTON_SHIFT;
 constexpr bool wait_for_serial = false;
+constexpr bool wait_for_can = true;
 
 /**** Global Objects ****/
 IntervalTimer timer;
@@ -182,6 +183,7 @@ void control_function() {
   control_state.gear_count = gear_count;
   interrupts();
 
+  // TODO: Make this an inline function?
   // Calculate instantaneous RPMs
   control_state.engine_rpm = (control_state.engine_count - last_engine_count) /
                              ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
@@ -251,11 +253,6 @@ void control_function() {
 }
 
 void button_shift_mode() {
-  noInterrupts();
-  u32 cur_engine_count = engine_count;
-  u32 cur_gear_count = gear_count;
-  interrupts();
-
   bool button_pressed[5] = {false, false, false, false, false};
   for (size_t i = 0; i < 5; i++) {
     button_pressed[i] = !digitalRead(BUTTON_PINS[i]) && last_button_state[i];
@@ -264,10 +261,10 @@ void button_shift_mode() {
     last_button_state[i] = digitalRead(BUTTON_PINS[i]);
   }
 
-  Serial.printf("State: %d, Velocity: %f, In: %d, Out: %d, Engage: %d\n",
+  Serial.printf("State: %d, Velocity: %f, Out: %d, Engage: %d, In: %d,\n",
                 odrive.get_axis_state(), odrive.get_vel_estimate(),
-                actuator.get_inbound_limit(), actuator.get_outbound_limit(),
-                actuator.get_engage_limit());
+                actuator.get_outbound_limit(), actuator.get_engage_limit(),
+                actuator.get_inbound_limit());
 
   float velocity = 10.0;
   if (button_pressed[0]) {
@@ -397,6 +394,15 @@ void setup() {
   flexcan_bus.enableFIFOInterrupt();
   flexcan_bus.onReceive(can_parse);
 
+  // Wait for ODrive can connection if enabled
+  if (wait_for_can) {
+    u32 led_flash_time_ms = 100;
+    while (odrive.get_time_since_heartbeat_ms() > 100) {
+      write_all_leds(millis() % (led_flash_time_ms * 2) < led_flash_time_ms);
+      delay(100);
+    }
+  }
+
   // Initialize subsystems
   u8 odrive_status_code = odrive.init();
   if (odrive_status_code != 0) {
@@ -411,7 +417,11 @@ void setup() {
   }
 
   // Run actuator homing sequence
-  actuator.home_encoder();
+  u8 actuator_home_status = actuator.home_encoder(ACTUATOR_HOME_TIMEOUT_MS);
+  if (actuator_home_status != 0) {
+    Serial.printf("Error: Actuator failed to home with error %d\n",
+                  actuator_home_status);
+  }
 
   // Set interrupt priorities
   // TODO: Figure out proper ISR priority levels
