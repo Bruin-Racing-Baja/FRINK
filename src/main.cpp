@@ -30,7 +30,7 @@ enum class OperatingMode {
 };
 
 /**** Operation Flags ****/
-constexpr OperatingMode operating_mode = OperatingMode::BUTTON_SHIFT;
+constexpr OperatingMode operating_mode = OperatingMode::NORMAL;
 constexpr bool wait_for_serial = false;
 constexpr bool wait_for_can = true;
 
@@ -54,6 +54,7 @@ volatile u32 engine_count = 0;
 volatile u32 gear_count = 0;
 u32 last_engine_count = 0;
 u32 last_gear_count = 0;
+float last_engine_rpm_error = 0;
 
 ControlFunctionState control_state = ControlFunctionState_init_default;
 
@@ -75,16 +76,20 @@ LogBuffer double_buffer[2];
 u8 message_buffer[MESSAGE_BUFFER_SIZE];
 
 /**** Global Functions ****/
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
+#define CLAMP(x, low, high) (MIN(MAX(x, low), high))
+
 time_t get_teensy3_time() { return Teensy3Clock.get(); }
 
 void can_parse(const CAN_message_t &msg) { odrive.parse_message(msg); }
 
 inline void write_all_leds(u8 state) {
-  digitalWrite(GREEN_LED_PIN, state);
-  digitalWrite(YELLOW_LED_PIN, state);
-  digitalWrite(RED_LED_PIN, state);
-  digitalWrite(GREEN2_LED_PIN, state);
-  digitalWrite(WHITE_LED_PIN, state);
+  digitalWrite(LED_1_PIN, state);
+  digitalWrite(LED_2_PIN, state);
+  digitalWrite(LED_3_PIN, state);
+  digitalWrite(LED_4_PIN, state);
+  digitalWrite(LED_5_PIN, state);
 }
 
 size_t encode_pb_message(u8 buffer[], size_t buffer_length, u8 id,
@@ -204,18 +209,26 @@ void control_function() {
   control_state.target_rpm = ENGINE_TARGET_RPM;
   control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;
+  control_state.engine_rpm_derror =
+      (control_state.engine_rpm_error - last_engine_rpm_error) / dt_s;
+  last_engine_rpm_error = control_state.engine_rpm_error;
 
-  control_state.velocity_mode = control_state.filtered_engine_rpm > 2400;
   control_state.velocity_mode = true;
+  control_state.velocity_command = control_state.engine_rpm_error * ACTUATOR_KP;
 
+  actuator.set_velocity(control_state.velocity_command);
+
+  /*
+  control_state.velocity_mode = control_state.filtered_engine_rpm > 2300;
   if (control_state.velocity_mode) {
     control_state.velocity_command =
         control_state.engine_rpm_error * ACTUATOR_KP;
     actuator.set_velocity(control_state.velocity_command);
   } else {
-    control_state.position_command = ACTUATOR_ENGAGE_POS_CM / ACTUATOR_PITCH_CM;
+    control_state.position_command = ACTUATOR_ENGAGE_POS_ROT;
     actuator.set_position(control_state.position_command);
   }
+*/
 
   // Populate control state
   control_state.inbound_limit_switch = actuator.get_inbound_limit();
@@ -244,12 +257,14 @@ void control_function() {
     // Write to double buffer
     u8 write_status = write_to_double_buffer(
         message_buffer, message_length, double_buffer, &cur_buffer_num, false);
+
     if (write_status != 0) {
+      digitalWrite(LED_3_PIN, HIGH);
       Serial.printf("Error: Failed to write to double buffer with error %d\n",
                     write_status);
     }
   }
-  control_cycle_count++;
+  control_state.cycle_count++;
 }
 
 void button_shift_mode() {
@@ -296,19 +311,23 @@ void debug_mode() {
                      ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
   float gear_rpm = (control_state.gear_count - last_gear_count) /
                    GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
+  float filtered_engine_rpm = engine_rpm_filter.update(engine_rpm);
 
-  Serial.printf("Engine RPM: %f, Gear RPM: %f\n", engine_rpm, gear_rpm);
+  Serial.printf("Engine RPM: %f, Gear RPM: %f\n", filtered_engine_rpm,
+                gear_rpm);
   last_engine_count = control_state.engine_count;
   last_gear_count = control_state.gear_count;
 }
 
 void setup() {
   // Pin setup
-  pinMode(GREEN_LED_PIN, OUTPUT);
-  pinMode(YELLOW_LED_PIN, OUTPUT);
-  pinMode(RED_LED_PIN, OUTPUT);
-  pinMode(GREEN2_LED_PIN, OUTPUT);
-  pinMode(WHITE_LED_PIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+
+  pinMode(LED_1_PIN, OUTPUT);
+  pinMode(LED_2_PIN, OUTPUT);
+  pinMode(LED_3_PIN, OUTPUT);
+  pinMode(LED_4_PIN, OUTPUT);
+  pinMode(LED_5_PIN, OUTPUT);
 
   for (size_t i = 0; i < sizeof(BUTTON_PINS) / sizeof(BUTTON_PINS[0]); i++) {
     pinMode(BUTTON_PINS[i], INPUT_PULLUP);
@@ -345,7 +364,6 @@ void setup() {
   sd_initialized = SD.sdfs.begin(SdioConfig(DMA_SDIO));
   if (!sd_initialized) {
     Serial.println("Warning: SD failed to initialize");
-    digitalWrite(RED_LED_PIN, HIGH);
   } else {
     char log_name[64];
     u16 log_name_length = 0;
@@ -402,6 +420,7 @@ void setup() {
       delay(100);
     }
   }
+  write_all_leds(LOW);
 
   // Initialize subsystems
   u8 odrive_status_code = odrive.init();
@@ -416,6 +435,8 @@ void setup() {
                   actuator_status_code);
   }
 
+  // TODO: Why do we need delay?
+  delay(1000);
   // Run actuator homing sequence
   u8 actuator_home_status = actuator.home_encoder(ACTUATOR_HOME_TIMEOUT_MS);
   if (actuator_home_status != 0) {
@@ -446,8 +467,8 @@ void setup() {
 
 void loop() {
   // LED indicators
-  digitalWrite(GREEN2_LED_PIN, actuator.get_outbound_limit());
-  digitalWrite(WHITE_LED_PIN, actuator.get_inbound_limit());
+  digitalWrite(LED_4_PIN, actuator.get_outbound_limit());
+  digitalWrite(LED_5_PIN, actuator.get_inbound_limit());
 
   // Flush SD card if buffer full
   if (sd_initialized && log_file) {
@@ -461,5 +482,7 @@ void loop() {
         double_buffer[buffer_num].idx = 0;
       }
     }
+  } else {
+    digitalWrite(LED_1_PIN, HIGH);
   }
 }
