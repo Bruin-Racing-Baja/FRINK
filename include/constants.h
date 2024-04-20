@@ -53,6 +53,9 @@ constexpr float ACTUATOR_ENGAGE_POS_CM =
     ACTUATOR_ENGAGE_POS_ROT * ACTUATOR_PITCH_CM; // cm
 constexpr float ACTUATOR_INBOUND_POS_CM =
     ACTUATOR_INBOUND_POS_ROT * ACTUATOR_PITCH_CM; // cm
+
+constexpr float ACTUATOR_ENGAGE_RAMP_POS_ROT = ACTUATOR_ENGAGE_POS_ROT;       // rot
+constexpr float ACTUATOR_INBOUND_RAMP_POS_ROT = ACTUATOR_INBOUND_POS_ROT;     // rot
 //
 constexpr float ACTUATOR_HOME_VELOCITY = 4.0;     // rot / s
 

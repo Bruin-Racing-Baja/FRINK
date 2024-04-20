@@ -22,7 +22,7 @@ public:
   static const u8 HOME_CAN_ERROR = 1;
   static const u8 HOME_FAILED = 2;
 
-  Actuator(ODrive *odrive);
+  Actuator(ODrive *odrive, bool do_ramping = false);
 
   u8 init();
   u8 home_encoder();
@@ -36,6 +36,7 @@ public:
 
 private:
   bool velocity_mode = true;
+  bool trapezoid_mode;
   ODrive *odrive;
 };
 

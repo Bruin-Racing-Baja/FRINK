@@ -11,7 +11,7 @@
  * Constructor for the actuator
  * @param odrive Pointer to ODrive object
  */
-Actuator::Actuator(ODrive *odrive) : odrive(odrive) {}
+Actuator::Actuator(ODrive *odrive, bool do_ramping = false) : odrive(odrive), trapezoid_mode(do_ramping) {}
 
 /**
  * Initializes connection to physical ODrive
@@ -75,7 +75,35 @@ u8 Actuator::set_velocity(float velocity) {
     return SET_VELOCITY_OUT_LIMIT_SWITCH_ERROR;
   }
 
-  velocity = CLAMP(velocity, -ODRIVE_VEL_LIMIT, ODRIVE_VEL_LIMIT);
+  //trapezoid velocity limit
+  float lower_vel_limit = -ODRIVE_VEL_LIMIT;  
+  float upper_vel_limit = ODRIVE_VEL_LIMIT;
+  if (trapezoid_mode) {  
+      float temp_pos = odrive->get_pos_estimate();
+      //verify ramp positions do not overlap
+      if (ACTUATOR_ENGAGE_RAMP_POS_ROT < ACTUATOR_INBOUND_RAMP_POS_ROT) {
+        if (temp_pos < ACTUATOR_ENGAGE_RAMP_POS_ROT) {
+          //lower limit sets to negative linear function, upper limit left alone
+          lower_vel_limit = 
+            (-ODRIVE_VEL_LIMIT / (ACTUATOR_ENGAGE_RAMP_POS_ROT - ACTUATOR_ENGAGE_POS_ROT)) * (temp_pos - ACTUATOR_ENGAGE_RAMP_POS_ROT) - ODRIVE_VEL_LIMIT;
+          upper_vel_limit = ODRIVE_VEL_LIMIT;
+        }
+        else if (temp_pos < ACTUATOR_INBOUND_RAMP_POS_ROT) {
+          //just a rectangle
+          lower_vel_limit = -ODRIVE_VEL_LIMIT;
+          upper_vel_limit = ODRIVE_VEL_LIMIT;
+        }
+        else {
+          //lower limit left alone, upper limit sets to positive linear function
+          lower_vel_limit = -ODRIVE_VEL_LIMIT;
+          upper_vel_limit = 
+            (ODRIVE_VEL_LIMIT / (ACTUATOR_INBOUND_RAMP_POS_ROT - ACTUATOR_INBOUND_POS_ROT)) * (temp_pos - ACTUATOR_INBOUND_RAMP_POS_ROT) + ODRIVE_VEL_LIMIT;
+        }
+      }
+  }
+  velocity = CLAMP(velocity, lower_vel_limit, upper_vel_limit);
+
+
   if (odrive->set_input_vel(velocity, 0) != 0) {
     return SET_VELOCITY_CAN_ERROR;
   }
