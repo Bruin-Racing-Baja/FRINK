@@ -35,7 +35,6 @@ u8 Actuator::home_encoder(u32 timeout_ms) {
     u32 start_time = millis();
     while (!get_engage_limit()) {
       // TODO: Why does this have to be set in the loop?
-      Serial.println(millis() - start_time);
       set_velocity(ACTUATOR_HOME_VELOCITY);
       if ((millis() - start_time) > timeout_ms) {
         return HOME_TIMEOUT_ERROR;
@@ -45,9 +44,8 @@ u8 Actuator::home_encoder(u32 timeout_ms) {
     set_velocity(0);
   }
 
-  odrive->get_pos_estimate()
-      // Move out to outbound limit
-      set_velocity(-ACTUATOR_HOME_VELOCITY);
+  // Move out to outbound limit
+  set_velocity(-ACTUATOR_HOME_VELOCITY);
   u32 start_time = millis();
   while (!get_outbound_limit()) {
     if ((millis() - start_time) > timeout_ms) {
@@ -101,6 +99,10 @@ u8 Actuator::set_velocity(float velocity) {
  * @return 0 if successful
  */
 u8 Actuator::set_position(float position) {
+  if (odrive->get_axis_state() == ODrive::AXIS_STATE_IDLE) {
+    odrive->set_axis_state(ODrive::AXIS_STATE_CLOSED_LOOP_CONTROL);
+  }
+
   if (odrive->set_controller_mode(ODrive::CONTROL_MODE_POSITION_CONTROL,
                                   ODrive::INPUT_MODE_TRAP_TRAJ) != 0) {
     return SET_POSITION_CAN_ERROR;
