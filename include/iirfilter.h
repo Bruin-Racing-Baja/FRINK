@@ -1,10 +1,11 @@
 #ifndef IIR_FILTER_H
 #define IIR_FILTER_H
+#include <Arduino.h>
 #include <types.h>
 
 class IIRFilter {
 public:
-  IIRFilter(const float b_[], const float a_[], uint32_t M_, uint32_t N_);
+  IIRFilter(const float b_[], const float a_[], size_t M_, size_t N_);
   ~IIRFilter();
 
   float update(float new_x);
@@ -16,8 +17,8 @@ private:
   float *a;
   float *y;
   float *x;
-  u32 M;
-  u32 N;
+  size_t M;
+  size_t N;
 };
 
 #define iirfilter_h

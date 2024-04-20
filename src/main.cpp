@@ -1,8 +1,8 @@
 #include <Arduino.h>
+#include <FlexCAN_T4.h>
 #include <actuator.h>
 #include <constants.h>
-
-#include <FlexCAN_T4.h>
+#include <iirfilter.h>
 // clang-format off
 #include <SPI.h>
 // clang-format on
@@ -20,7 +20,7 @@
 #include <stdio.h>
 #include <types.h>
 
-// Acknowledgements to Getty & Tyler :)
+// Acknowledgements to Tyler, Drew, Getty, et al. :)
 
 enum class OperatingMode {
   NORMAL,
@@ -31,7 +31,8 @@ enum class OperatingMode {
 
 /**** Operation Flags ****/
 constexpr OperatingMode operating_mode = OperatingMode::NORMAL;
-constexpr bool wait_for_serial = true;
+constexpr bool wait_for_serial = false;
+constexpr bool wait_for_can = true;
 
 /**** Global Objects ****/
 IntervalTimer timer;
@@ -39,6 +40,8 @@ FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> flexcan_bus;
 ODrive odrive(&flexcan_bus, ODRIVE_NODE_ID);
 Actuator actuator(&odrive);
 File log_file;
+IIRFilter engine_rpm_filter(ENGINE_RPM_FILTER_B, ENGINE_RPM_FILTER_A,
+                            ENGINE_RPM_FILTER_M, ENGINE_RPM_FILTER_N);
 
 /**** Status Variables ****/
 bool sd_initialized = false;
@@ -51,6 +54,7 @@ volatile u32 engine_count = 0;
 volatile u32 gear_count = 0;
 u32 last_engine_count = 0;
 u32 last_gear_count = 0;
+float last_engine_rpm_error = 0;
 
 ControlFunctionState control_state = ControlFunctionState_init_default;
 
@@ -72,7 +76,6 @@ LogBuffer double_buffer[2];
 u8 message_buffer[MESSAGE_BUFFER_SIZE];
 
 /**** Global Functions ****/
-
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 #define CLAMP(x, low, high) (MIN(MAX(x, low), high))
@@ -82,11 +85,11 @@ time_t get_teensy3_time() { return Teensy3Clock.get(); }
 void can_parse(const CAN_message_t &msg) { odrive.parse_message(msg); }
 
 inline void write_all_leds(u8 state) {
-  digitalWrite(GREEN_LED_PIN, state);
-  digitalWrite(YELLOW_LED_PIN, state);
-  digitalWrite(RED_LED_PIN, state);
-  digitalWrite(GREEN2_LED_PIN, state);
-  digitalWrite(WHITE_LED_PIN, state);
+  digitalWrite(LED_1_PIN, state);
+  digitalWrite(LED_2_PIN, state);
+  digitalWrite(LED_3_PIN, state);
+  digitalWrite(LED_4_PIN, state);
+  digitalWrite(LED_5_PIN, state);
 }
 
 size_t encode_pb_message(u8 buffer[], size_t buffer_length, u8 id,
@@ -156,6 +159,23 @@ u8 write_to_double_buffer(u8 data[], size_t data_length,
   return DOUBLE_BUFFER_SUCCESS;
 }
 
+void on_outbound_limit_switch() {
+  // TODO: Should we reset position each time?
+  odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
+}
+
+void on_engage_limit_switch() {
+  // TODO: Implement better slowdown
+  float vel_estimate = odrive.get_vel_estimate();
+  if (vel_estimate < 0) {
+    odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
+  }
+}
+
+void on_inbound_limit_switch() {
+  odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
+}
+
 // ඞ
 void control_function() {
   control_state = ControlFunctionState_init_default;
@@ -168,9 +188,12 @@ void control_function() {
   control_state.gear_count = gear_count;
   interrupts();
 
+  // TODO: Make this an inline function?
   // Calculate instantaneous RPMs
   control_state.engine_rpm = (control_state.engine_count - last_engine_count) /
                              ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
+  control_state.filtered_engine_rpm =
+      engine_rpm_filter.update(control_state.engine_rpm);
 
   // TODO: Fix gear RPM calculation
   float gear_rpm = (control_state.gear_count - last_gear_count) /
@@ -185,14 +208,27 @@ void control_function() {
   // Controller
   control_state.target_rpm = ENGINE_TARGET_RPM;
   control_state.engine_rpm_error =
-      control_state.engine_rpm - control_state.target_rpm;
+      control_state.filtered_engine_rpm - control_state.target_rpm;
+  control_state.engine_rpm_derror =
+      (control_state.engine_rpm_error - last_engine_rpm_error) / dt_s;
+  last_engine_rpm_error = control_state.engine_rpm_error;
 
+  control_state.velocity_mode = true;
   control_state.velocity_command = control_state.engine_rpm_error * ACTUATOR_KP;
-  control_state.velocity_command =
-      CLAMP(control_state.velocity_command, -ODRIVE_VELOCITY_LIMIT,
-            ODRIVE_VELOCITY_LIMIT);
 
   actuator.set_velocity(control_state.velocity_command);
+
+  /*
+  control_state.velocity_mode = control_state.filtered_engine_rpm > 2300;
+  if (control_state.velocity_mode) {
+    control_state.velocity_command =
+        control_state.engine_rpm_error * ACTUATOR_KP;
+    actuator.set_velocity(control_state.velocity_command);
+  } else {
+    control_state.position_command = ACTUATOR_ENGAGE_POS_ROT;
+    actuator.set_position(control_state.position_command);
+  }
+*/
 
   // Populate control state
   control_state.inbound_limit_switch = actuator.get_inbound_limit();
@@ -221,20 +257,17 @@ void control_function() {
     // Write to double buffer
     u8 write_status = write_to_double_buffer(
         message_buffer, message_length, double_buffer, &cur_buffer_num, false);
+
     if (write_status != 0) {
+      digitalWrite(LED_3_PIN, HIGH);
       Serial.printf("Error: Failed to write to double buffer with error %d\n",
                     write_status);
     }
   }
-  control_cycle_count++;
+  control_state.cycle_count++;
 }
 
 void button_shift_mode() {
-  noInterrupts();
-  u32 cur_engine_count = engine_count;
-  u32 cur_gear_count = gear_count;
-  interrupts();
-
   bool button_pressed[5] = {false, false, false, false, false};
   for (size_t i = 0; i < 5; i++) {
     button_pressed[i] = !digitalRead(BUTTON_PINS[i]) && last_button_state[i];
@@ -243,10 +276,10 @@ void button_shift_mode() {
     last_button_state[i] = digitalRead(BUTTON_PINS[i]);
   }
 
-  Serial.printf("State: %d, Velocity: %f, In: %d, Out: %d, Engage: %d\n",
+  Serial.printf("State: %d, Velocity: %f, Out: %d, Engage: %d, In: %d,\n",
                 odrive.get_axis_state(), odrive.get_vel_estimate(),
-                actuator.get_inbound_limit(), actuator.get_outbound_limit(),
-                actuator.get_engage_limit());
+                actuator.get_outbound_limit(), actuator.get_engage_limit(),
+                actuator.get_inbound_limit());
 
   float velocity = 10.0;
   if (button_pressed[0]) {
@@ -278,19 +311,23 @@ void debug_mode() {
                      ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
   float gear_rpm = (control_state.gear_count - last_gear_count) /
                    GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
+  float filtered_engine_rpm = engine_rpm_filter.update(engine_rpm);
 
-  Serial.printf("Engine RPM: %f, Gear RPM: %f\n", engine_rpm, gear_rpm);
+  Serial.printf("Engine RPM: %f, Gear RPM: %f\n", filtered_engine_rpm,
+                gear_rpm);
   last_engine_count = control_state.engine_count;
   last_gear_count = control_state.gear_count;
 }
 
 void setup() {
   // Pin setup
-  pinMode(GREEN_LED_PIN, OUTPUT);
-  pinMode(YELLOW_LED_PIN, OUTPUT);
-  pinMode(RED_LED_PIN, OUTPUT);
-  pinMode(GREEN2_LED_PIN, OUTPUT);
-  pinMode(WHITE_LED_PIN, OUTPUT);
+  pinMode(LED_BUILTIN, OUTPUT);
+
+  pinMode(LED_1_PIN, OUTPUT);
+  pinMode(LED_2_PIN, OUTPUT);
+  pinMode(LED_3_PIN, OUTPUT);
+  pinMode(LED_4_PIN, OUTPUT);
+  pinMode(LED_5_PIN, OUTPUT);
 
   for (size_t i = 0; i < sizeof(BUTTON_PINS) / sizeof(BUTTON_PINS[0]); i++) {
     pinMode(BUTTON_PINS[i], INPUT_PULLUP);
@@ -327,7 +364,6 @@ void setup() {
   sd_initialized = SD.sdfs.begin(SdioConfig(DMA_SDIO));
   if (!sd_initialized) {
     Serial.println("Warning: SD failed to initialize");
-    digitalWrite(RED_LED_PIN, HIGH);
   } else {
     char log_name[64];
     u16 log_name_length = 0;
@@ -364,15 +400,9 @@ void setup() {
       GEARTOOTH_SENSOR_PIN, []() { ++gear_count; }, FALLING);
 
   // Attach limit switch interrupts
-  attachInterrupt(
-      LIMIT_SWITCH_IN_PIN, []() { odrive.set_input_vel(0, 0); }, FALLING);
-  attachInterrupt(
-      LIMIT_SWITCH_OUT_PIN,
-      []() {
-        odrive.set_input_vel(0, 0);
-        odrive.set_absolute_position(0);
-      },
-      FALLING);
+  attachInterrupt(LIMIT_SWITCH_OUT_PIN, on_outbound_limit_switch, FALLING);
+  attachInterrupt(LIMIT_SWITCH_ENGAGE_PIN, on_engage_limit_switch, FALLING);
+  attachInterrupt(LIMIT_SWITCH_IN_PIN, on_inbound_limit_switch, FALLING);
 
   // Initialize CAN bus
   flexcan_bus.begin();
@@ -381,6 +411,38 @@ void setup() {
   flexcan_bus.enableFIFO();
   flexcan_bus.enableFIFOInterrupt();
   flexcan_bus.onReceive(can_parse);
+
+  // Wait for ODrive can connection if enabled
+  if (wait_for_can) {
+    u32 led_flash_time_ms = 100;
+    while (odrive.get_time_since_heartbeat_ms() > 100) {
+      write_all_leds(millis() % (led_flash_time_ms * 2) < led_flash_time_ms);
+      delay(100);
+    }
+  }
+  write_all_leds(LOW);
+
+  // Initialize subsystems
+  u8 odrive_status_code = odrive.init();
+  if (odrive_status_code != 0) {
+    Serial.printf("Error: ODrive failed to initialize with error %d\n",
+                  odrive_status_code);
+  }
+
+  u8 actuator_status_code = actuator.init();
+  if (actuator_status_code != 0) {
+    Serial.printf("Error: Actuator failed to initialize with error %d\n",
+                  actuator_status_code);
+  }
+
+  // TODO: Why do we need delay?
+  delay(1000);
+  // Run actuator homing sequence
+  u8 actuator_home_status = actuator.home_encoder(ACTUATOR_HOME_TIMEOUT_MS);
+  if (actuator_home_status != 0) {
+    Serial.printf("Error: Actuator failed to home with error %d\n",
+                  actuator_home_status);
+  }
 
   // Set interrupt priorities
   // TODO: Figure out proper ISR priority levels
@@ -405,8 +467,8 @@ void setup() {
 
 void loop() {
   // LED indicators
-  digitalWrite(GREEN2_LED_PIN, actuator.get_outbound_limit());
-  digitalWrite(WHITE_LED_PIN, actuator.get_inbound_limit());
+  digitalWrite(LED_4_PIN, actuator.get_outbound_limit());
+  digitalWrite(LED_5_PIN, actuator.get_inbound_limit());
 
   // Flush SD card if buffer full
   if (sd_initialized && log_file) {
@@ -420,5 +482,7 @@ void loop() {
         double_buffer[buffer_num].idx = 0;
       }
     }
+  } else {
+    digitalWrite(LED_1_PIN, HIGH);
   }
 }
