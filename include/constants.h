@@ -47,8 +47,8 @@ constexpr float ODRIVE_CURRENT_SOFT_MAX = 30.0; // A
 constexpr float ACTUATOR_PITCH_MM = 5.0;                      // mm / rot
 constexpr float ACTUATOR_PITCH_CM = ACTUATOR_PITCH_MM / 10.0; // cm / rot
 
-constexpr float ACTUATOR_ENGAGE_POS_ROT = 2.0;   // rot
-constexpr float ACTUATOR_INBOUND_POS_ROT = 14.3; // rot
+constexpr float ACTUATOR_ENGAGE_POS_ROT = 3.5;   // rot
+constexpr float ACTUATOR_INBOUND_POS_ROT = 16.2; // rot
 constexpr float ACTUATOR_ENGAGE_POS_CM =
     ACTUATOR_ENGAGE_POS_ROT * ACTUATOR_PITCH_CM; // cm
 constexpr float ACTUATOR_INBOUND_POS_CM =
@@ -59,7 +59,8 @@ constexpr float ACTUATOR_HOME_TIMEOUT_MS = 1000;  // ms
 // Control Function
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 constexpr float ENGINE_TARGET_RPM = 2300.0;      // rpm
-constexpr float ACTUATOR_KP = 0.035;
+constexpr float ACTUATOR_KP = 0.025;
+constexpr float ACTUATOR_KD = 0.00;
 
 constexpr float ENGINE_RPM_FILTER_B[] = {0.09162837, 0.09162837};
 constexpr float ENGINE_RPM_FILTER_A[] = {1.0, -0.81674327};
@@ -67,11 +68,11 @@ constexpr size_t ENGINE_RPM_FILTER_M = COUNT_OF(ENGINE_RPM_FILTER_B);
 constexpr size_t ENGINE_RPM_FILTER_N = COUNT_OF(ENGINE_RPM_FILTER_A);
 
 // Teensy Pins
-constexpr u8 GREEN_LED_PIN = 7;
-constexpr u8 YELLOW_LED_PIN = 8;
-constexpr u8 RED_LED_PIN = 9;
-constexpr u8 WHITE_LED_PIN = 29;
-constexpr u8 GREEN2_LED_PIN = 28;
+constexpr u8 LED_1_PIN = 9;
+constexpr u8 LED_2_PIN = 8;
+constexpr u8 LED_3_PIN = 7;
+constexpr u8 LED_4_PIN = 28;
+constexpr u8 LED_5_PIN = 29;
 
 constexpr u8 LIMIT_SWITCH_IN_PIN = 27;
 constexpr u8 LIMIT_SWITCH_OUT_PIN = 25;
@@ -92,7 +93,7 @@ constexpr u32 FLEXCAN_MAX_MAILBOX = 16;
 // Logging
 // bytes_per_cycle * cycle_freq * time_to_flush_sd * safety_factor
 // 100 * 100 * 0.4 * 2 = 8000
-constexpr size_t LOG_BUFFER_SIZE = 8192;
+constexpr size_t LOG_BUFFER_SIZE = 65536;
 
 constexpr u8 PROTO_HEADER_MESSAGE_ID = 0x00;
 constexpr u8 PROTO_CONTROL_FUNCTION_MESSAGE_ID = 0x01;
