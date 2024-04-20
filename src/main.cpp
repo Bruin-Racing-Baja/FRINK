@@ -305,6 +305,12 @@ void debug_mode() {
   last_gear_count = control_state.gear_count;
 }
 
+void doReboot() {
+  
+  SCB_AIRCR = 0x05FA0004;
+
+}
+
 void setup() {
   // Pin setup
   pinMode(GREEN_LED_PIN, OUTPUT);
@@ -326,6 +332,8 @@ void setup() {
   pinMode(LIMIT_SWITCH_IN_PIN, INPUT);
   pinMode(LIMIT_SWITCH_OUT_PIN, INPUT);
   pinMode(LIMIT_SWITCH_ENGAGE_PIN, INPUT);
+
+  pinMode(RESET_PIN, INPUT);
 
   // Wait for serial if enabled
   if (wait_for_serial) {
@@ -388,6 +396,9 @@ void setup() {
   attachInterrupt(LIMIT_SWITCH_OUT_PIN, on_outbound_limit_switch, FALLING);
   attachInterrupt(LIMIT_SWITCH_ENGAGE_PIN, on_engage_limit_switch, FALLING);
   attachInterrupt(LIMIT_SWITCH_IN_PIN, on_inbound_limit_switch, FALLING);
+  
+  //Attach Reset Pin Interrupt
+  attachInterrupt(RESET_PIN, doReboot, RISING);
 
   // Initialize CAN bus
   flexcan_bus.begin();
