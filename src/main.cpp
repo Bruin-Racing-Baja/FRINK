@@ -305,10 +305,13 @@ void debug_mode() {
   last_gear_count = control_state.gear_count;
 }
 
+long last_micros = micros();
+const long reboot_debouncing_time = 100000;  //microseconds
 void doReboot() {
-  
-  SCB_AIRCR = 0x05FA0004;
-
+  if((long)(micros() - last_micros) >= reboot_debouncing_time) {
+    SCB_AIRCR = 0x05FA0004;
+    last_micros = micros();
+  }
 }
 
 void setup() {
