@@ -175,8 +175,8 @@ void control_function() {
                              ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
 
   // TODO: Test gear RPM calculation
-  float gear_rpm = GEAR_SAMPLE_WINDOW / GEAR_COUNTS_PER_ROT / gear_time_diff_us * US_PER_SECOND *
-                   SECONDS_PER_MINUTE;
+  float gear_rpm = GEAR_SAMPLE_WINDOW / GEAR_COUNTS_PER_ROT /
+                   gear_time_diff_us * US_PER_SECOND * SECONDS_PER_MINUTE;
 
   last_engine_count = control_state.engine_count;
 
@@ -362,10 +362,10 @@ void setup() {
   attachInterrupt(
       GEARTOOTH_SENSOR_PIN,
       []() {
-        u32 curr_time_us = micros();
-        if(gear_count % GEAR_SAMPLE_WINDOW == 0) {
-          gear_time_diff_us = curr_time_us - last_gear_time_us;
-          last_gear_time_us = curr_time_us;
+        u32 cur_time_us = micros();
+        if (gear_count % GEAR_SAMPLE_WINDOW == 0) {
+          gear_time_diff_us = cur_time_us - last_gear_time_us;
+          last_gear_time_us = cur_time_us;
         }
         ++gear_count;
       },
