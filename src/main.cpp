@@ -48,14 +48,11 @@ bool sd_initialized = false;
 u32 control_cycle_count = 0;
 
 volatile u32 engine_count = 0;
-volatile u32 gear_count = 0;
-volatile u32 time_diff = 0;
-volatile u32 last_time = 0;
-volatile u32 curr_time = 0;
-u32 inter_count = 0;
-u32 num_interval = 10;
 u32 last_engine_count = 0;
-u32 last_gear_count = 0;
+
+volatile u32 gear_count = 0;
+volatile u32 gear_time_diff_us = 0;
+u32 last_gear_time_us = 0;
 
 ControlFunctionState control_state = ControlFunctionState_init_default;
 
@@ -177,19 +174,11 @@ void control_function() {
   control_state.engine_rpm = (control_state.engine_count - last_engine_count) /
                              ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
 
-  // TODO: Fix gear RPM calculation
-  // float gear_rpm = (control_state.gear_count - last_gear_count) /
-  //                  GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
-  // change in count / (6 roations per minute)
-  float gear_rpm = (control_state.gear_count - last_gear_count) /
-                     ENGINE_COUNTS_PER_ROT / time_diff * SECONDS_PER_MS * SECONDS_PER_MINUTE;
-  // if want larger time intervals based on time between each tick
-  // if (inter_count == num_interval) {
-  //   float gear_rpm = (control_state.gear_count - last_gear_count) /
-  //                    ENGINE_COUNTS_PER_ROT / time_diff * SECONDS_PER_MS;
-  // }
+  // TODO: Test gear RPM calculation
+  float gear_rpm = GEAR_SAMPLE_WINDOW / GEAR_COUNTS_PER_ROT / gear_time_diff_us * US_PER_SECOND *
+                   SECONDS_PER_MINUTE;
+
   last_engine_count = control_state.engine_count;
-  last_gear_count = control_state.gear_count;
 
   float wheel_rpm = gear_rpm * GEAR_TO_WHEEL_RATIO;
   control_state.secondary_rpm = wheel_rpm * SECONDARY_TO_WHEEL_RATIO;
@@ -288,13 +277,9 @@ void debug_mode() {
   // Calculate instantaneous RPMs
   float engine_rpm = (control_state.engine_count - last_engine_count) /
                      ENGINE_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
-  
-  float gear_rpm = (control_state.gear_count - last_gear_count) /
-                   GEAR_COUNTS_PER_ROT / dt_s * SECONDS_PER_MINUTE;
 
-  Serial.printf("Engine RPM: %f, Gear RPM: %f\n", engine_rpm, gear_rpm);
+  Serial.printf("Engine RPM: %f\n", engine_rpm);
   last_engine_count = control_state.engine_count;
-  last_gear_count = control_state.gear_count;
 }
 
 void setup() {
@@ -373,11 +358,18 @@ void setup() {
   // Attach sensor interrupts
   attachInterrupt(
       ENGINE_SENSOR_PIN, []() { ++engine_count; }, FALLING);
-      //calculate time btwn each tick in interrupt
-      
+
   attachInterrupt(
-      GEARTOOTH_SENSOR_PIN, []() { curr_time = millis(); ++gear_count; time_diff = curr_time - last_time;
-      last_time = curr_time; ++inter_count;}, FALLING);
+      GEARTOOTH_SENSOR_PIN,
+      []() {
+        u32 curr_time_us = micros();
+        if(gear_count % GEAR_SAMPLE_WINDOW == 0) {
+          gear_time_diff_us = curr_time_us - last_gear_time_us;
+          last_gear_time_us = curr_time_us;
+        }
+        ++gear_count;
+      },
+      FALLING);
 
   // Attach limit switch interrupts
   attachInterrupt(

@@ -34,6 +34,8 @@ constexpr float WHEEL_DIAMETER_INCH = 23.0; // inch
 constexpr float WHEEL_MPH_PER_RPM =
     (WHEEL_DIAMETER_INCH * M_PI) / (FEET_PER_MILE * INCH_PER_FEET); // mph / rpm
 
+constexpr u32 GEAR_SAMPLE_WINDOW = 10;
+
 // ODrive
 constexpr u8 ODRIVE_NODE_ID = 0x3;
 constexpr float ODRIVE_VELOCITY_LIMIT = 20.0;
