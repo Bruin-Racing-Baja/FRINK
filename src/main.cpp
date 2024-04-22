@@ -58,6 +58,7 @@ ControlFunctionState control_state = ControlFunctionState_init_default;
 bool last_button_state[5] = {HIGH, HIGH, HIGH, HIGH, HIGH};
 
 /**** Logging Variables ****/
+volatile bool logging_disconnected = false; 
 struct LogBuffer {
   char buffer[LOG_BUFFER_SIZE];
   size_t idx;
@@ -212,7 +213,7 @@ void control_function() {
   control_state.velocity_estimate = odrive.get_vel_estimate();
   control_state.position_estimate = odrive.get_pos_estimate();
 
-  if (sd_initialized) {
+  if (sd_initialized && !logging_disconnected) {
     // Serialize control state
     size_t message_length = encode_pb_message(
         message_buffer, MESSAGE_BUFFER_SIZE, PROTO_CONTROL_FUNCTION_MESSAGE_ID,
@@ -355,6 +356,9 @@ void setup() {
     }
     Serial.printf("Info: Logging to %s\n", log_name);
     log_file = SD.open(log_name, FILE_WRITE);
+    if (!log_file) {
+      Serial.println("Warning: Log file was not opened! (Sarah)");
+    }
   }
 
   // Attach sensor interrupts
@@ -409,15 +413,22 @@ void loop() {
   digitalWrite(WHITE_LED_PIN, actuator.get_inbound_limit());
 
   // Flush SD card if buffer full
-  if (sd_initialized && log_file) {
+  if (sd_initialized && !logging_disconnected) {
     for (size_t buffer_num = 0; buffer_num < 2; buffer_num++) {
       if (double_buffer[buffer_num].full) {
         Serial.printf("Info: Writing buffer %d to SD\n", buffer_num);
-        log_file.write(double_buffer[buffer_num].buffer,
+        size_t num_bytes_written = log_file.write(double_buffer[buffer_num].buffer,
                        double_buffer[buffer_num].idx);
-        log_file.flush();
-        double_buffer[buffer_num].full = false;
-        double_buffer[buffer_num].idx = 0;
+        if (num_bytes_written == 0) {
+          logging_disconnected = true;
+          digitalWrite(RED_LED_PIN, HIGH);
+        } else {
+          log_file.flush();
+          double_buffer[buffer_num].full = false;
+          double_buffer[buffer_num].idx = 0;
+        }
+
+        
       }
     }
   }
