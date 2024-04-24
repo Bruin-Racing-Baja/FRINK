@@ -45,14 +45,15 @@ u8 Actuator::home_encoder(u32 timeout_ms) {
   }
 
   // Move out to outbound limit
-  set_velocity(-ACTUATOR_HOME_VELOCITY);
   u32 start_time = millis();
   while (!get_outbound_limit()) {
+    set_velocity(-ACTUATOR_HOME_VELOCITY);
     if ((millis() - start_time) > timeout_ms) {
       return HOME_TIMEOUT_ERROR;
     }
     delay(100);
   }
+
   set_velocity(0);
 
   odrive->set_absolute_position(0);
