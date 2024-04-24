@@ -37,8 +37,8 @@ constexpr float WHEEL_DIAMETER_INCH = 23.0; // inch
 constexpr float WHEEL_MPH_PER_RPM =
     (WHEEL_DIAMETER_INCH * M_PI) / (FEET_PER_MILE * INCH_PER_FEET); // mph / rpm
 
+constexpr u32 ENGINE_SAMPLE_WINDOW = 4;
 constexpr u32 GEAR_SAMPLE_WINDOW = 10;
-
 // ODrive
 constexpr u8 ODRIVE_NODE_ID = 0x3;
 constexpr float ODRIVE_VEL_LIMIT = 40.0;        // rot / s
@@ -62,12 +62,32 @@ constexpr float ACTUATOR_HOME_TIMEOUT_MS = 1000;  // ms
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 constexpr float ENGINE_TARGET_RPM = 2300.0;      // rpm
 constexpr float ACTUATOR_KP = 0.025;
-constexpr float ACTUATOR_KD = 0.00;
+constexpr float ACTUATOR_KD = 0.0005;
 
-constexpr float ENGINE_RPM_FILTER_B[] = {0.09162837, 0.09162837};
-constexpr float ENGINE_RPM_FILTER_A[] = {1.0, -0.81674327};
-constexpr size_t ENGINE_RPM_FILTER_M = COUNT_OF(ENGINE_RPM_FILTER_B);
-constexpr size_t ENGINE_RPM_FILTER_N = COUNT_OF(ENGINE_RPM_FILTER_A);
+constexpr u32 ENGINE_RPM_MEDIAN_FILTER_WINDOW = 3;
+
+constexpr float ENGINE_RPM_BUTTER_FILTER_B[] = {0.09162837, 0.09162837};
+constexpr float ENGINE_RPM_BUTTER_FILTER_A[] = {1.0, -0.81674327};
+constexpr size_t ENGINE_RPM_BUTTER_FILTER_M =
+    COUNT_OF(ENGINE_RPM_BUTTER_FILTER_B);
+constexpr size_t ENGINE_RPM_BUTTER_FILTER_N =
+    COUNT_OF(ENGINE_RPM_BUTTER_FILTER_A);
+
+constexpr float ENGINE_RPM_NOTCH_FILTER_B[] = {0.9103394, -1.78569496,
+                                               0.9103394};
+constexpr float ENGINE_RPM_NOTCH_FILTER_A[] = {1., -1.78569496, 0.82067879};
+constexpr size_t ENGINE_RPM_NOTCH_FILTER_M =
+    COUNT_OF(ENGINE_RPM_NOTCH_FILTER_B);
+constexpr size_t ENGINE_RPM_NOTCH_FILTER_N =
+    COUNT_OF(ENGINE_RPM_NOTCH_FILTER_A);
+
+constexpr float ENGINE_RPM_NOTCH2_FILTER_B[] = {0.83408932, -1.5411961,
+                                                0.83408932};
+constexpr float ENGINE_RPM_NOTCH2_FILTER_A[] = {1., -1.5411961, 0.66817864};
+constexpr size_t ENGINE_RPM_NOTCH2_FILTER_M =
+    COUNT_OF(ENGINE_RPM_NOTCH_FILTER_B);
+constexpr size_t ENGINE_RPM_NOTCH2_FILTER_N =
+    COUNT_OF(ENGINE_RPM_NOTCH_FILTER_A);
 
 // Teensy Pins
 constexpr u8 LED_1_PIN = 9;
