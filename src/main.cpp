@@ -69,6 +69,7 @@ volatile u32 engine_count = 0;
 volatile u32 engine_time_diff_us = 0;
 volatile float filt_engine_time_diff_us = 0;
 u32 last_engine_time_us = 0;
+u32 last_sample_engine_time_us = 0;
 
 volatile u32 gear_count = 0;
 volatile u32 gear_time_diff_us = 0;
@@ -180,6 +181,38 @@ u8 write_to_double_buffer(u8 data[], size_t data_length,
   return DOUBLE_BUFFER_SUCCESS;
 }
 
+void on_engine_sensor() {
+  u32 cur_time_us = micros();
+  if (cur_time_us - last_sample_engine_time_us > 100) {
+    if (engine_count % ENGINE_SAMPLE_WINDOW == 0) {
+      engine_time_diff_us = cur_time_us - last_sample_engine_time_us;
+
+      filt_engine_time_diff_us = engine_time_diff_us;
+      filt_engine_time_diff_us =
+          engine_rpm_median_filter.update(filt_engine_time_diff_us);
+      filt_engine_time_diff_us =
+          engine_rpm_butter_filter.update(filt_engine_time_diff_us);
+      filt_engine_time_diff_us =
+          engine_rpm_notch_filter.update(filt_engine_time_diff_us);
+      filt_engine_time_diff_us =
+          engine_rpm_notch2_filter.update(filt_engine_time_diff_us);
+
+      last_sample_engine_time_us = cur_time_us;
+    }
+    ++engine_count;
+  }
+  last_engine_time_us = cur_time_us;
+}
+
+void on_geartooth_sensor() {
+  u32 cur_time_us = micros();
+  if (gear_count % GEAR_SAMPLE_WINDOW == 0) {
+    gear_time_diff_us = cur_time_us - last_gear_time_us;
+    last_gear_time_us = cur_time_us;
+  }
+  ++gear_count;
+}
+
 void on_outbound_limit_switch() {
   // TODO: Should we reset position each time?
   odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
@@ -250,7 +283,6 @@ void control_function() {
   control_state.velocity_command =
       CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
             ODRIVE_VEL_LIMIT / 2.0);
-
 
   // TODO: Fix velcoity for wacky rpm values
   /*
@@ -420,40 +452,8 @@ void setup() {
   }
 
   // Attach sensor interrupts
-  attachInterrupt(
-      ENGINE_SENSOR_PIN,
-      []() {
-        u32 cur_time_us = micros();
-        if (engine_count % ENGINE_SAMPLE_WINDOW == 0) {
-          engine_time_diff_us = cur_time_us - last_engine_time_us;
-
-          filt_engine_time_diff_us = engine_time_diff_us;
-          filt_engine_time_diff_us =
-              engine_rpm_median_filter.update(filt_engine_time_diff_us);
-          filt_engine_time_diff_us =
-              engine_rpm_butter_filter.update(filt_engine_time_diff_us);
-          filt_engine_time_diff_us =
-              engine_rpm_notch_filter.update(filt_engine_time_diff_us);
-          filt_engine_time_diff_us =
-              engine_rpm_notch2_filter.update(filt_engine_time_diff_us);
-
-          last_engine_time_us = cur_time_us;
-        }
-        ++engine_count;
-      },
-      FALLING);
-
-  attachInterrupt(
-      GEARTOOTH_SENSOR_PIN,
-      []() {
-        u32 cur_time_us = micros();
-        if (gear_count % GEAR_SAMPLE_WINDOW == 0) {
-          gear_time_diff_us = cur_time_us - last_gear_time_us;
-          last_gear_time_us = cur_time_us;
-        }
-        ++gear_count;
-      },
-      FALLING);
+  attachInterrupt(ENGINE_SENSOR_PIN, on_engine_sensor, FALLING);
+  attachInterrupt(GEARTOOTH_SENSOR_PIN, on_geartooth_sensor, FALLING);
 
   // Attach limit switch interrupts
   attachInterrupt(LIMIT_SWITCH_OUT_PIN, on_outbound_limit_switch, FALLING);
