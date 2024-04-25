@@ -284,6 +284,8 @@ void control_function() {
       CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
             ODRIVE_VEL_LIMIT / 2.0);
 
+  actuator.set_velocity(control_state.velocity_command);
+
   // TODO: Fix velcoity for wacky rpm values
   /*
   control_state.velocity_mode = control_state.filtered_engine_rpm > 2300;
