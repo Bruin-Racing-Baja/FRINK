@@ -20,6 +20,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <types.h>
+#include <macros.h>
 
 // Acknowledgements to Tyler, Drew, Getty, et al. :)
 
@@ -41,20 +42,20 @@ FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> flexcan_bus;
 ODrive odrive(&flexcan_bus, ODRIVE_NODE_ID);
 Actuator actuator(&odrive);
 File log_file;
-IIRFilter engine_rpm_butter_filter(ENGINE_RPM_BUTTER_FILTER_B,
-                                   ENGINE_RPM_BUTTER_FILTER_A,
-                                   ENGINE_RPM_BUTTER_FILTER_M,
-                                   ENGINE_RPM_BUTTER_FILTER_N);
+IIRFilter engine_rpm_rotation_filter(ENGINE_RPM_ROTATION_FILTER_B,
+                                     ENGINE_RPM_ROTATION_FILTER_A,
+                                     ENGINE_RPM_ROTATION_FILTER_M,
+                                     ENGINE_RPM_ROTATION_FILTER_N);
 
-IIRFilter engine_rpm_notch_filter(ENGINE_RPM_NOTCH_FILTER_B,
-                                  ENGINE_RPM_NOTCH_FILTER_A,
-                                  ENGINE_RPM_NOTCH_FILTER_M,
-                                  ENGINE_RPM_NOTCH_FILTER_N);
+IIRFilter engine_rpm_time_filter(ENGINE_RPM_TIME_FILTER_B,
+                                 ENGINE_RPM_TIME_FILTER_A,
+                                 ENGINE_RPM_TIME_FILTER_M,
+                                 ENGINE_RPM_TIME_FILTER_N);
 
-IIRFilter engine_rpm_notch2_filter(ENGINE_RPM_NOTCH2_FILTER_B,
-                                   ENGINE_RPM_NOTCH2_FILTER_A,
-                                   ENGINE_RPM_NOTCH2_FILTER_M,
-                                   ENGINE_RPM_NOTCH2_FILTER_N);
+IIRFilter engine_rpm_derror_filter(ENGINE_RPM_DERROR_FILTER_B,
+                                   ENGINE_RPM_DERROR_FILTER_A,
+                                   ENGINE_RPM_DERROR_FILTER_M,
+                                   ENGINE_RPM_DERROR_FILTER_N);
 
 MedianFilter engine_rpm_median_filter(ENGINE_RPM_MEDIAN_FILTER_WINDOW);
 
@@ -98,10 +99,6 @@ LogBuffer double_buffer[2];
 u8 message_buffer[MESSAGE_BUFFER_SIZE];
 
 /**** Global Functions ****/
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define CLAMP(x, low, high) (MIN(MAX(x, low), high))
-
 time_t get_teensy3_time() { return Teensy3Clock.get(); }
 
 void can_parse(const CAN_message_t &msg) { odrive.parse_message(msg); }
@@ -183,19 +180,11 @@ u8 write_to_double_buffer(u8 data[], size_t data_length,
 
 void on_engine_sensor() {
   u32 cur_time_us = micros();
-  if (cur_time_us - last_sample_engine_time_us > 100) {
+  if (cur_time_us - last_engine_time_us > ENGINE_COUNT_MINIMUM_TIME_MS) {
     if (engine_count % ENGINE_SAMPLE_WINDOW == 0) {
       engine_time_diff_us = cur_time_us - last_sample_engine_time_us;
-
-      filt_engine_time_diff_us = engine_time_diff_us;
       filt_engine_time_diff_us =
-          engine_rpm_median_filter.update(filt_engine_time_diff_us);
-      filt_engine_time_diff_us =
-          engine_rpm_butter_filter.update(filt_engine_time_diff_us);
-      filt_engine_time_diff_us =
-          engine_rpm_notch_filter.update(filt_engine_time_diff_us);
-      filt_engine_time_diff_us =
-          engine_rpm_notch2_filter.update(filt_engine_time_diff_us);
+          engine_rpm_rotation_filter.update(engine_time_diff_us);
 
       last_sample_engine_time_us = cur_time_us;
     }
@@ -214,7 +203,7 @@ void on_geartooth_sensor() {
 }
 
 void on_outbound_limit_switch() {
-  // TODO: Should we reset position each time?
+  odrive.set_absolute_position(0.0);
   odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
 }
 
@@ -255,6 +244,12 @@ void control_function() {
     control_state.filtered_engine_rpm =
         ENGINE_SAMPLE_WINDOW / ENGINE_COUNTS_PER_ROT /
         cur_filt_engine_time_diff_us * US_PER_SECOND * SECONDS_PER_MINUTE;
+
+    // TODO: Confirm we need median filter
+    control_state.filtered_engine_rpm =
+        engine_rpm_median_filter.update(control_state.filtered_engine_rpm);
+    control_state.filtered_engine_rpm =
+        engine_rpm_time_filter.update(control_state.filtered_engine_rpm);
   }
 
   float gear_rpm = 0.0;
@@ -270,9 +265,13 @@ void control_function() {
   control_state.target_rpm = ENGINE_TARGET_RPM;
   control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;
+
+  float filtered_engine_rpm_error =
+      engine_rpm_derror_filter.update(control_state.engine_rpm_error);
+
   control_state.engine_rpm_derror =
-      (control_state.engine_rpm_error - last_engine_rpm_error) / dt_s;
-  last_engine_rpm_error = control_state.engine_rpm_error;
+      (filtered_engine_rpm_error - last_engine_rpm_error) / dt_s;
+  last_engine_rpm_error = filtered_engine_rpm_error;
 
   control_state.velocity_mode = true;
 
@@ -280,9 +279,16 @@ void control_function() {
       control_state.engine_rpm_error * ACTUATOR_KP +
       MIN(0, control_state.engine_rpm_derror * ACTUATOR_KD);
 
-  control_state.velocity_command =
-      CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
-            ODRIVE_VEL_LIMIT / 2.0);
+  // TODO: Move this logic to actuator ?
+  if (odrive.get_pos_estimate() < ACTUATOR_SLOW_INBOUND_REGION_ROT) {
+    control_state.velocity_command =
+        CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
+              ACTUATOR_SLOW_INBOUND_VEL);
+  } else {
+    control_state.velocity_command =
+        CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
+              ACTUATOR_FAST_INBOUND_VEL);
+  }
 
   actuator.set_velocity(control_state.velocity_command);
 

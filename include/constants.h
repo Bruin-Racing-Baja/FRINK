@@ -1,13 +1,11 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
+#include <macros.h>
 #include <math.h>
 #include <stddef.h>
 #include <types.h>
 
 #define dancing 13
-
-#define COUNT_OF(x)                                                            \
-  ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
 
 // Units
 constexpr float SECONDS_PER_MINUTE = 60.0; // s / min
@@ -41,7 +39,7 @@ constexpr u32 ENGINE_SAMPLE_WINDOW = 4;
 constexpr u32 GEAR_SAMPLE_WINDOW = 10;
 // ODrive
 constexpr u8 ODRIVE_NODE_ID = 0x3;
-constexpr float ODRIVE_VEL_LIMIT = 40.0;        // rot / s
+constexpr float ODRIVE_VEL_LIMIT = 80.0;        // rot / s
 constexpr float ODRIVE_CURRENT_SOFT_MAX = 30.0; // A
 
 // Actuator
@@ -58,36 +56,42 @@ constexpr float ACTUATOR_INBOUND_POS_CM =
 constexpr float ACTUATOR_HOME_VELOCITY = 4.0;     // rot / s
 constexpr float ACTUATOR_HOME_TIMEOUT_MS = 1000;  // ms
 
+constexpr float ACTUATOR_SLOW_INBOUND_REGION_ROT = 5.0;
+constexpr float ACTUATOR_SLOW_INBOUND_VEL = 30.0;
+constexpr float ACTUATOR_FAST_INBOUND_VEL = 60.0;
+
 // Control Function
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
-constexpr float ENGINE_TARGET_RPM = 2300.0;      // rpm
-constexpr float ACTUATOR_KP = 0.025;
-constexpr float ACTUATOR_KD = 0.0005;
+constexpr float ENGINE_TARGET_RPM = 2100.0;      // rpm
+constexpr float ACTUATOR_KP = 0.08;
+constexpr float ACTUATOR_KD = 0.02;
+
+constexpr u32 ENGINE_COUNT_MINIMUM_TIME_MS = 100;
 
 constexpr u32 ENGINE_RPM_MEDIAN_FILTER_WINDOW = 3;
 
-constexpr float ENGINE_RPM_BUTTER_FILTER_B[] = {0.09162837, 0.09162837};
-constexpr float ENGINE_RPM_BUTTER_FILTER_A[] = {1.0, -0.81674327};
-constexpr size_t ENGINE_RPM_BUTTER_FILTER_M =
-    COUNT_OF(ENGINE_RPM_BUTTER_FILTER_B);
-constexpr size_t ENGINE_RPM_BUTTER_FILTER_N =
-    COUNT_OF(ENGINE_RPM_BUTTER_FILTER_A);
+constexpr float ENGINE_RPM_ROTATION_FILTER_B[] = {
+    0.8677114646, -3.305398989, 4.8804516238, -3.305398989, 0.8677114646};
+constexpr float ENGINE_RPM_ROTATION_FILTER_A[] = {
+    1.0, -3.5518051128, 4.8720546544, -3.0589928651, 0.7438198987};
+constexpr size_t ENGINE_RPM_ROTATION_FILTER_M =
+    COUNT_OF(ENGINE_RPM_ROTATION_FILTER_B);
+constexpr size_t ENGINE_RPM_ROTATION_FILTER_N =
+    COUNT_OF(ENGINE_RPM_ROTATION_FILTER_A);
 
-constexpr float ENGINE_RPM_NOTCH_FILTER_B[] = {0.9103394, -1.78569496,
-                                               0.9103394};
-constexpr float ENGINE_RPM_NOTCH_FILTER_A[] = {1., -1.78569496, 0.82067879};
-constexpr size_t ENGINE_RPM_NOTCH_FILTER_M =
-    COUNT_OF(ENGINE_RPM_NOTCH_FILTER_B);
-constexpr size_t ENGINE_RPM_NOTCH_FILTER_N =
-    COUNT_OF(ENGINE_RPM_NOTCH_FILTER_A);
+constexpr float ENGINE_RPM_TIME_FILTER_B[] = {0.24523727525278557,
+                                              0.24523727525278557};
+constexpr float ENGINE_RPM_TIME_FILTER_A[] = {1.0, -0.5095254494944288};
+constexpr size_t ENGINE_RPM_TIME_FILTER_M = COUNT_OF(ENGINE_RPM_TIME_FILTER_B);
+constexpr size_t ENGINE_RPM_TIME_FILTER_N = COUNT_OF(ENGINE_RPM_TIME_FILTER_A);
 
-constexpr float ENGINE_RPM_NOTCH2_FILTER_B[] = {0.83408932, -1.5411961,
-                                                0.83408932};
-constexpr float ENGINE_RPM_NOTCH2_FILTER_A[] = {1., -1.5411961, 0.66817864};
-constexpr size_t ENGINE_RPM_NOTCH2_FILTER_M =
-    COUNT_OF(ENGINE_RPM_NOTCH_FILTER_B);
-constexpr size_t ENGINE_RPM_NOTCH2_FILTER_N =
-    COUNT_OF(ENGINE_RPM_NOTCH_FILTER_A);
+constexpr float ENGINE_RPM_DERROR_FILTER_B[] = {0.07295965726826667,
+                                                0.0729596572682667};
+constexpr float ENGINE_RPM_DERROR_FILTER_A[] = {1.0, -0.8540806854634666};
+constexpr size_t ENGINE_RPM_DERROR_FILTER_M =
+    COUNT_OF(ENGINE_RPM_DERROR_FILTER_B);
+constexpr size_t ENGINE_RPM_DERROR_FILTER_N =
+    COUNT_OF(ENGINE_RPM_DERROR_FILTER_A);
 
 // Teensy Pins
 constexpr u8 LED_1_PIN = 9;
