@@ -11,6 +11,7 @@
 #include <TimeLib.h>
 #include <control_function_state.pb.h>
 #include <cstring>
+#include <macros.h>
 #include <median_filter.h>
 #include <odrive.h>
 #include <operation_header.pb.h>
@@ -20,7 +21,6 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <types.h>
-#include <macros.h>
 
 // Acknowledgements to Tyler, Drew, Getty, et al. :)
 
@@ -85,7 +85,7 @@ ControlFunctionState control_state = ControlFunctionState_init_default;
 bool last_button_state[5] = {HIGH, HIGH, HIGH, HIGH, HIGH};
 
 /**** Logging Variables ****/
-volatile bool logging_disconnected = false; 
+volatile bool logging_disconnected = false;
 struct LogBuffer {
   char buffer[LOG_BUFFER_SIZE];
   size_t idx;
@@ -543,18 +543,16 @@ void loop() {
     for (size_t buffer_num = 0; buffer_num < 2; buffer_num++) {
       if (double_buffer[buffer_num].full) {
         Serial.printf("Info: Writing buffer %d to SD\n", buffer_num);
-        size_t num_bytes_written = log_file.write(double_buffer[buffer_num].buffer,
-                       double_buffer[buffer_num].idx);
+        size_t num_bytes_written = log_file.write(
+            double_buffer[buffer_num].buffer, double_buffer[buffer_num].idx);
         if (num_bytes_written == 0) {
           logging_disconnected = true;
-          digitalWrite(RED_LED_PIN, HIGH);
+          digitalWrite(LED_1_PIN, HIGH);
         } else {
           log_file.flush();
           double_buffer[buffer_num].full = false;
           double_buffer[buffer_num].idx = 0;
         }
-
-        
       }
     }
   } else {
