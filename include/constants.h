@@ -54,7 +54,7 @@ constexpr float ACTUATOR_ENGAGE_POS_CM =
 constexpr float ACTUATOR_INBOUND_POS_CM =
     ACTUATOR_INBOUND_POS_ROT * ACTUATOR_PITCH_CM; // cm
 constexpr float ACTUATOR_HOME_VELOCITY = 4.0;     // rot / s
-constexpr float ACTUATOR_HOME_TIMEOUT_MS = 1000;  // ms
+constexpr float ACTUATOR_HOME_TIMEOUT_MS = 4000;  // ms
 
 constexpr float ACTUATOR_SLOW_INBOUND_REGION_ROT = 5.0;
 constexpr float ACTUATOR_SLOW_INBOUND_VEL = 30.0;
@@ -62,9 +62,11 @@ constexpr float ACTUATOR_FAST_INBOUND_VEL = 60.0;
 
 // Control Function
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
-constexpr float ENGINE_TARGET_RPM = 2100.0;      // rpm
-constexpr float ACTUATOR_KP = 0.08;
-constexpr float ACTUATOR_KD = 0.02;
+
+// Anti-Stall Mode
+constexpr float ENGINE_TARGET_RPM = 2100.0; // rpm
+constexpr float ACTUATOR_KP = 0.02;
+constexpr float ACTUATOR_KD = 0.015;
 
 constexpr u32 ENGINE_COUNT_MINIMUM_TIME_MS = 100;
 
