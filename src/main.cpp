@@ -211,7 +211,7 @@ void on_outbound_limit_switch() {
 void on_engage_limit_switch() {
   // TODO: Implement better slowdown
   float vel_estimate = odrive.get_vel_estimate();
-  if (vel_estimate < 0) {
+  if (vel_estimate < -10) {
     odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
   }
 }
@@ -335,7 +335,6 @@ void control_function() {
         message_buffer, message_length, double_buffer, &cur_buffer_num, false);
 
     if (write_status != 0) {
-      digitalWrite(LED_3_PIN, HIGH);
       Serial.printf("Error: Failed to write to double buffer with error %d\n",
                     write_status);
     }
@@ -504,12 +503,15 @@ void setup() {
   }
 
   // TODO: Why do we need delay?
+  digitalWrite(LED_3_PIN, HIGH);
   delay(3000);
   // Run actuator homing sequence
   u8 actuator_home_status = actuator.home_encoder(ACTUATOR_HOME_TIMEOUT_MS);
   if (actuator_home_status != 0) {
     Serial.printf("Error: Actuator failed to home with error %d\n",
                   actuator_home_status);
+  } else {
+    digitalWrite(LED_3_PIN, LOW);
   }
 
   // Set interrupt priorities
