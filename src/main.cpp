@@ -217,6 +217,7 @@ void on_engage_limit_switch() {
 }
 
 void on_inbound_limit_switch() {
+  odrive.set_absolute_position(15.0);
   odrive.set_axis_state(ODrive::AXIS_STATE_IDLE);
 }
 
