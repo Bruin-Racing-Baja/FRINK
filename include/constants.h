@@ -63,10 +63,24 @@ constexpr float ACTUATOR_FAST_INBOUND_VEL = 60.0;
 // Control Function
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 
-// Anti-Stall Mode
-constexpr float ENGINE_TARGET_RPM = 2100.0; // rpm
+// 0: Anti-Stall
+// 1: Maneuverability
+// 2: Acceleration
+#define MODE 0
+
+#if MODE == 0
+constexpr float ENGINE_TARGET_RPM = 2400.0; // rpm
 constexpr float ACTUATOR_KP = 0.02;
 constexpr float ACTUATOR_KD = 0.015;
+#elif MODE == 1
+constexpr float ENGINE_TARGET_RPM = 2200.0; // rpm
+constexpr float ACTUATOR_KP = 0.024;
+constexpr float ACTUATOR_KD = 0.009;
+#elif MODE == 2
+constexpr float ENGINE_TARGET_RPM = 3000.0; // rpm
+constexpr float ACTUATOR_KP = 0.04;
+constexpr float ACTUATOR_KD = 0.002;
+#endif
 
 constexpr u32 ENGINE_COUNT_MINIMUM_TIME_MS = 100;
 
