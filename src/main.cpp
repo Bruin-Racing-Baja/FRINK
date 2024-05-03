@@ -11,6 +11,9 @@
 #include <TimeLib.h>
 #include <control_function_state.pb.h>
 #include <cstring>
+#include <engine.h>
+#include <engine_config.pb.h>
+#include <engine_state.pb.h>
 #include <macros.h>
 #include <median_filter.h>
 #include <odrive.h>
@@ -39,25 +42,15 @@ constexpr bool wait_for_can = true;
 /**** Global Objects ****/
 IntervalTimer timer;
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> flexcan_bus;
-ODrive odrive(&flexcan_bus, ODRIVE_NODE_ID);
-Actuator actuator(&odrive);
 File log_file;
-IIRFilter engine_rpm_rotation_filter(ENGINE_RPM_ROTATION_FILTER_B,
-                                     ENGINE_RPM_ROTATION_FILTER_A,
-                                     ENGINE_RPM_ROTATION_FILTER_M,
-                                     ENGINE_RPM_ROTATION_FILTER_N);
-
-IIRFilter engine_rpm_time_filter(ENGINE_RPM_TIME_FILTER_B,
-                                 ENGINE_RPM_TIME_FILTER_A,
-                                 ENGINE_RPM_TIME_FILTER_M,
-                                 ENGINE_RPM_TIME_FILTER_N);
-
 IIRFilter engine_rpm_derror_filter(ENGINE_RPM_DERROR_FILTER_B,
                                    ENGINE_RPM_DERROR_FILTER_A,
                                    ENGINE_RPM_DERROR_FILTER_M,
                                    ENGINE_RPM_DERROR_FILTER_N);
 
-MedianFilter engine_rpm_median_filter(ENGINE_RPM_MEDIAN_FILTER_WINDOW);
+ODrive odrive(&flexcan_bus, ODRIVE_NODE_ID);
+Actuator actuator(&odrive);
+Engine engine;
 
 /**** Status Variables ****/
 bool sd_initialized = false;
@@ -65,12 +58,6 @@ bool sd_initialized = false;
 /**** ECVT State Variables ****/
 // TODO: Confirm variables only accessed in timer ISR dont need to be volatile
 u32 control_cycle_count = 0;
-
-volatile u32 engine_count = 0;
-volatile u32 engine_time_diff_us = 0;
-volatile float filt_engine_time_diff_us = 0;
-u32 last_engine_time_us = 0;
-u32 last_sample_engine_time_us = 0;
 
 volatile u32 gear_count = 0;
 volatile u32 gear_time_diff_us = 0;
@@ -179,21 +166,6 @@ u8 write_to_double_buffer(u8 data[], size_t data_length,
   return DOUBLE_BUFFER_SUCCESS;
 }
 
-void on_engine_sensor() {
-  u32 cur_time_us = micros();
-  if (cur_time_us - last_engine_time_us > ENGINE_COUNT_MINIMUM_TIME_MS) {
-    if (engine_count % ENGINE_SAMPLE_WINDOW == 0) {
-      engine_time_diff_us = cur_time_us - last_sample_engine_time_us;
-      filt_engine_time_diff_us =
-          engine_rpm_rotation_filter.update(engine_time_diff_us);
-
-      last_sample_engine_time_us = cur_time_us;
-    }
-    ++engine_count;
-  }
-  last_engine_time_us = cur_time_us;
-}
-
 void on_geartooth_sensor() {
   u32 cur_time_us = micros();
   if (gear_count % GEAR_SAMPLE_WINDOW == 0) {
@@ -229,30 +201,16 @@ void control_function() {
 
   // Grab sensor data
   noInterrupts();
-  control_state.engine_count = engine_count;
   control_state.gear_count = gear_count;
-  float cur_engine_time_diff_us = engine_time_diff_us;
-  float cur_filt_engine_time_diff_us = filt_engine_time_diff_us;
   float cur_gear_time_diff_us = gear_time_diff_us;
   interrupts();
 
   // Calculate instantaneous RPMs
-  // TODO: Fix edge case of no movement
-  control_state.engine_rpm = 0;
-  if (engine_time_diff_us != 0) {
-    control_state.engine_rpm = ENGINE_SAMPLE_WINDOW / ENGINE_COUNTS_PER_ROT /
-                               cur_engine_time_diff_us * US_PER_SECOND *
-                               SECONDS_PER_MINUTE;
-    control_state.filtered_engine_rpm =
-        ENGINE_SAMPLE_WINDOW / ENGINE_COUNTS_PER_ROT /
-        cur_filt_engine_time_diff_us * US_PER_SECOND * SECONDS_PER_MINUTE;
+  engine.update();
 
-    // TODO: Confirm we need median filter
-    control_state.filtered_engine_rpm =
-        engine_rpm_median_filter.update(control_state.filtered_engine_rpm);
-    control_state.filtered_engine_rpm =
-        engine_rpm_time_filter.update(control_state.filtered_engine_rpm);
-  }
+  control_state.engine_count = engine.state->pulse_count;
+  control_state.engine_rpm = engine.state->rpm;
+  control_state.filtered_engine_rpm = engine.state->filt_rpm;
 
   float gear_rpm = 0.0;
   if (gear_time_diff_us != 0) {
@@ -378,7 +336,6 @@ void debug_mode() {
 
   // Grab sensor data
   noInterrupts();
-  control_state.engine_count = engine_count;
   control_state.gear_count = gear_count;
   interrupts();
 }
@@ -464,7 +421,8 @@ void setup() {
   }
 
   // Attach sensor interrupts
-  attachInterrupt(ENGINE_SENSOR_PIN, on_engine_sensor, FALLING);
+  attachInterrupt(
+      ENGINE_SENSOR_PIN, []() { engine.on_sensor_pulse(); }, FALLING);
   attachInterrupt(GEARTOOTH_SENSOR_PIN, on_geartooth_sensor, FALLING);
 
   // Attach limit switch interrupts

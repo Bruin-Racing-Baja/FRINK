@@ -21,8 +21,7 @@ constexpr float FEET_PER_MILE = 5280.0; // feet / mile
 constexpr float INCH_PER_FEET = 12.0;   // inch / feet
 
 // Powertrain
-constexpr float ENGINE_COUNTS_PER_ROT = 16; // count / rot
-constexpr float GEAR_COUNTS_PER_ROT = 6;    // count / rot
+constexpr float GEAR_COUNTS_PER_ROT = 6; // count / rot
 
 // NOTE: x_to_y ratio is how many rotations of x for 1 rotation of y
 constexpr float GEAR_TO_WHEEL_RATIO = 1.0;
@@ -81,8 +80,6 @@ constexpr float ENGINE_TARGET_RPM = 3000.0; // rpm
 constexpr float ACTUATOR_KP = 0.04;
 constexpr float ACTUATOR_KD = 0.002;
 #endif
-
-constexpr u32 ENGINE_COUNT_MINIMUM_TIME_MS = 100;
 
 constexpr u32 ENGINE_RPM_MEDIAN_FILTER_WINDOW = 3;
 
