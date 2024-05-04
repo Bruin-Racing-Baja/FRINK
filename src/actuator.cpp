@@ -1,12 +1,8 @@
-#include "core_pins.h"
 #include <actuator.h>
 #include <constants.h>
+#include <macros.h>
 #include <odrive.h>
 #include <types.h>
-
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define CLAMP(x, low, high) (MIN(MAX(x, low), high))
 
 /**
  * Constructor for the actuator
@@ -45,14 +41,15 @@ u8 Actuator::home_encoder(u32 timeout_ms) {
   }
 
   // Move out to outbound limit
-  set_velocity(-ACTUATOR_HOME_VELOCITY);
   u32 start_time = millis();
   while (!get_outbound_limit()) {
+    set_velocity(-ACTUATOR_HOME_VELOCITY);
     if ((millis() - start_time) > timeout_ms) {
       return HOME_TIMEOUT_ERROR;
     }
-    delay(100);
+    delay(10);
   }
+
   set_velocity(0);
 
   odrive->set_absolute_position(0);
