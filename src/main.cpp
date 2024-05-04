@@ -206,12 +206,6 @@ void control_function() {
   float wheel_rpm = gear_rpm * GEAR_TO_WHEEL_RATIO;
   control_state.secondary_rpm = wheel_rpm * SECONDARY_TO_WHEEL_RATIO;
 
-  //Reference RPM from wheel speed
-  // constexpr float WHEEL_REF_LOW_RPM = 2100;
-  // constexpr float WHEEL_REF_HIGH_RPM = 3200;
-  // constexpr float WHEEL_REF_BREAKPOINT_MPH = 875;
-  // constexpr float WHEEL_REF_PIECEWISE_SLOP
-
   // Controller
   control_state.filtered_secondary_rpm = WHEEL_REF_HIGH_RPM; 
   if (control_state.filtered_secondary_rpm <= 0) {

@@ -10,6 +10,7 @@
   ((sizeof(x) / sizeof(0 [x])) / ((size_t)(!(sizeof(x) % sizeof(0 [x])))))
 
 // Units
+constexpr float MINUTES_PER_HOUR = 60.0; 
 constexpr float SECONDS_PER_MINUTE = 60.0; // s / min
 constexpr float MS_PER_SECOND = 1.0e3;     // ms / s
 constexpr float US_PER_SECOND = 1.0e6;     // us / s
@@ -35,7 +36,7 @@ constexpr float WHEEL_TO_SECONDARY_RATIO =
 
 constexpr float WHEEL_DIAMETER_INCH = 23.0; // inch
 constexpr float WHEEL_MPH_PER_RPM =
-    (WHEEL_DIAMETER_INCH * M_PI) / (FEET_PER_MILE * INCH_PER_FEET); // mph / rpm
+    (WHEEL_DIAMETER_INCH * M_PI) / (FEET_PER_MILE * INCH_PER_FEET * MINUTES_PER_HOUR); // mph / rpm
 
 // ODrive
 constexpr u8 ODRIVE_NODE_ID = 0x3;
@@ -65,9 +66,8 @@ constexpr float ACTUATOR_KD = 0.00;
 constexpr float WHEEL_REF_LOW_RPM = 2100;
 constexpr float WHEEL_REF_HIGH_RPM = 3200;
 constexpr float WHEEL_REF_BREAKPOINT_MPH = 5;
-constexpr float WHEEL_REF_PIECEWISE_SLOPE =
-    ((WHEEL_REF_HIGH_RPM - WHEEL_REF_LOW_RPM) /
-     WHEEL_REF_BREAKPOINT_MPH);
+constexpr float WHEEL_REF_BREAKPOINT_SECONDARY_RPM = (WHEEL_REF_BREAKPOINT_MPH * SECONDARY_TO_WHEEL_RATIO) / WHEEL_MPH_PER_RPM;
+constexpr float WHEEL_REF_PIECEWISE_SLOPE = (WHEEL_REF_HIGH_RPM - WHEEL_REF_LOW_RPM) / (WHEEL_REF_BREAKPOINT_SECONDARY_RPM);
 
 constexpr float ENGINE_RPM_FILTER_B[] = {0.09162837, 0.09162837};
 constexpr float ENGINE_RPM_FILTER_A[] = {1.0, -0.81674327};
