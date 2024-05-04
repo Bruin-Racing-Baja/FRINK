@@ -62,6 +62,13 @@ constexpr float ENGINE_TARGET_RPM = 2300.0;      // rpm
 constexpr float ACTUATOR_KP = 0.025;
 constexpr float ACTUATOR_KD = 0.00;
 
+constexpr float WHEEL_REF_LOW_RPM = 2100;
+constexpr float WHEEL_REF_HIGH_RPM = 3200;
+constexpr float WHEEL_REF_BREAKPOINT_MPH = 5;
+constexpr float WHEEL_REF_PIECEWISE_SLOPE =
+    ((WHEEL_REF_HIGH_RPM - WHEEL_REF_LOW_RPM) /
+     WHEEL_REF_BREAKPOINT_MPH);
+
 constexpr float ENGINE_RPM_FILTER_B[] = {0.09162837, 0.09162837};
 constexpr float ENGINE_RPM_FILTER_A[] = {1.0, -0.81674327};
 constexpr size_t ENGINE_RPM_FILTER_M = COUNT_OF(ENGINE_RPM_FILTER_B);

@@ -206,13 +206,26 @@ void control_function() {
   float wheel_rpm = gear_rpm * GEAR_TO_WHEEL_RATIO;
   control_state.secondary_rpm = wheel_rpm * SECONDARY_TO_WHEEL_RATIO;
 
+  //Reference RPM from wheel speed
+  // constexpr float WHEEL_REF_LOW_RPM = 2100;
+  // constexpr float WHEEL_REF_HIGH_RPM = 3200;
+  // constexpr float WHEEL_REF_BREAKPOINT_MPH = 875;
+  // constexpr float WHEEL_REF_PIECEWISE_SLOP
+
   // Controller
-  control_state.target_rpm = ENGINE_TARGET_RPM;
+  control_state.filtered_secondary_rpm = WHEEL_REF_HIGH_RPM; 
+  if (control_state.filtered_secondary_rpm <= 0) {
+    control_state.target_rpm = WHEEL_REF_LOW_RPM; 
+  } else if (control_state.filtered_secondary_rpm * WHEEL_TO_SECONDARY_RATIO * WHEEL_MPH_PER_RPM <= WHEEL_REF_BREAKPOINT_MPH) {
+    control_state.target_rpm = WHEEL_REF_PIECEWISE_SLOPE * control_state.filtered_secondary_rpm + WHEEL_REF_LOW_RPM; 
+  }
+
   control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;
   control_state.engine_rpm_derror =
       (control_state.engine_rpm_error - last_engine_rpm_error) / dt_s;
   last_engine_rpm_error = control_state.engine_rpm_error;
+
 
   control_state.velocity_mode = true;
   control_state.velocity_command = control_state.engine_rpm_error * ACTUATOR_KP;
