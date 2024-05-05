@@ -56,6 +56,8 @@ IIRFilter engine_rpm_derror_filter(ENGINE_RPM_DERROR_FILTER_B,
                                    ENGINE_RPM_DERROR_FILTER_A,
                                    ENGINE_RPM_DERROR_FILTER_M,
                                    ENGINE_RPM_DERROR_FILTER_N);
+IIRFilter gear_rpm_time_filter(GEAR_RPM_TIME_FILTER_B, GEAR_RPM_TIME_FILTER_A,
+                               GEAR_RPM_TIME_FILTER_M, GEAR_RPM_TIME_FILTER_N);
 
 MedianFilter engine_rpm_median_filter(ENGINE_RPM_MEDIAN_FILTER_WINDOW);
 
@@ -74,8 +76,9 @@ u32 last_sample_engine_time_us = 0;
 
 volatile u32 gear_count = 0;
 volatile u32 gear_time_diff_us = 0;
-volatile float filt_gear_time_diff_us = 0;
+volatile float last_gear_time_diff_us = 0;
 u32 last_gear_time_us = 0;
+u32 last_sample_gear_time_us = 0;
 
 float last_engine_rpm_error = 0;
 
@@ -196,11 +199,16 @@ void on_engine_sensor() {
 
 void on_geartooth_sensor() {
   u32 cur_time_us = micros();
-  if (gear_count % GEAR_SAMPLE_WINDOW == 0) {
-    gear_time_diff_us = cur_time_us - last_gear_time_us;
-    last_gear_time_us = cur_time_us;
+  if (cur_time_us - last_gear_time_us > GEAR_COUNT_MINIMUM_TIME_MS) {
+    if (gear_count % GEAR_SAMPLE_WINDOW == 0) {
+      gear_time_diff_us = cur_time_us - last_sample_gear_time_us;
+
+      last_sample_gear_time_us = cur_time_us;
+    }
+    ++gear_count;
   }
-  ++gear_count;
+  last_gear_time_diff_us = gear_time_diff_us;
+  last_gear_time_us = cur_time_us;
 }
 
 void on_outbound_limit_switch() {
@@ -255,13 +263,17 @@ void control_function() {
   }
 
   float gear_rpm = 0.0;
+  float filt_gear_rpm = 0.0;
   if (gear_time_diff_us != 0) {
     gear_rpm = GEAR_SAMPLE_WINDOW / GEAR_COUNTS_PER_ROT /
                cur_gear_time_diff_us * US_PER_SECOND * SECONDS_PER_MINUTE;
+    filt_gear_rpm = gear_rpm_time_filter.update(gear_rpm);
   }
 
   float wheel_rpm = gear_rpm * GEAR_TO_WHEEL_RATIO;
-  control_state.secondary_rpm = wheel_rpm * SECONDARY_TO_WHEEL_RATIO;
+  control_state.secondary_rpm = gear_rpm / GEAR_TO_SECONDARY_RATIO;
+  control_state.filtered_secondary_rpm =
+      filt_gear_rpm / GEAR_TO_SECONDARY_RATIO;
 
   // Controller
   control_state.target_rpm = ENGINE_TARGET_RPM;

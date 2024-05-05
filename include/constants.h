@@ -22,18 +22,21 @@ constexpr float INCH_PER_FEET = 12.0;   // inch / feet
 
 // Powertrain
 constexpr float ENGINE_COUNTS_PER_ROT = 16; // count / rot
-constexpr float GEAR_COUNTS_PER_ROT = 6;    // count / rot
+constexpr float GEAR_COUNTS_PER_ROT = 46;   // count / rot
 
 // NOTE: x_to_y ratio is how many rotations of x for 1 rotation of y
-constexpr float GEAR_TO_WHEEL_RATIO = 1.0;
+constexpr float GEAR_TO_WHEEL_RATIO = 56.0 / 19.0;
+constexpr float GEAR_TO_SECONDARY_RATIO = 17.0 / 46.0;
+
 constexpr float SECONDARY_TO_WHEEL_RATIO =
     ((46.0 / 17.0) * (56.0 / 19.0)); // ~7.975
 constexpr float WHEEL_TO_SECONDARY_RATIO =
     (1.0 / SECONDARY_TO_WHEEL_RATIO); // ~0.1253
 
 constexpr float WHEEL_DIAMETER_INCH = 23.0; // inch
-constexpr float WHEEL_MPH_PER_RPM =
-    (WHEEL_DIAMETER_INCH * M_PI) / (FEET_PER_MILE * INCH_PER_FEET); // mph / rpm
+constexpr float WHEEL_MPH_PER_RPM = (WHEEL_DIAMETER_INCH * M_PI) /
+                                    (FEET_PER_MILE * INCH_PER_FEET) *
+                                    60; // mph / rpm
 
 constexpr u32 ENGINE_SAMPLE_WINDOW = 4;
 constexpr u32 GEAR_SAMPLE_WINDOW = 10;
@@ -83,6 +86,7 @@ constexpr float ACTUATOR_KD = 0.002;
 #endif
 
 constexpr u32 ENGINE_COUNT_MINIMUM_TIME_MS = 100;
+constexpr u32 GEAR_COUNT_MINIMUM_TIME_MS = 300;
 
 constexpr u32 ENGINE_RPM_MEDIAN_FILTER_WINDOW = 3;
 
@@ -108,6 +112,13 @@ constexpr size_t ENGINE_RPM_DERROR_FILTER_M =
     COUNT_OF(ENGINE_RPM_DERROR_FILTER_B);
 constexpr size_t ENGINE_RPM_DERROR_FILTER_N =
     COUNT_OF(ENGINE_RPM_DERROR_FILTER_A);
+
+constexpr float GEAR_RPM_TIME_FILTER_B[] = {
+    0.007820208033497193, 0.015640416066994386, 0.007820208033497193};
+constexpr float GEAR_RPM_TIME_FILTER_A[] = {1.0, -1.734725768809275,
+                                            0.7660066009432638};
+constexpr size_t GEAR_RPM_TIME_FILTER_M = COUNT_OF(GEAR_RPM_TIME_FILTER_B);
+constexpr size_t GEAR_RPM_TIME_FILTER_N = COUNT_OF(GEAR_RPM_TIME_FILTER_A);
 
 // Teensy Pins
 constexpr u8 LED_1_PIN = 9;
