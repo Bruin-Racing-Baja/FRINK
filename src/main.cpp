@@ -346,6 +346,9 @@ void control_function() {
   control_state.velocity_estimate = odrive.get_vel_estimate();
   control_state.position_estimate = odrive.get_pos_estimate();
 
+  control_state.p_term = ACTUATOR_KP;
+  control_state.d_term = ACTUATOR_KD;
+
   control_state.throt_pot=analogRead(THROTTLE_POT_PIN);
   control_state.brake_pot=analogRead(BRAKE_SENSOR_PIN);
 
