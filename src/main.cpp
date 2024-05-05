@@ -275,13 +275,15 @@ void control_function() {
   control_state.filtered_secondary_rpm =
       filt_gear_rpm / GEAR_TO_SECONDARY_RATIO;
 
+  float wheel_mph = control_state.filtered_secondary_rpm *
+                    WHEEL_TO_SECONDARY_RATIO * WHEEL_MPH_PER_RPM;
+
   // Controller
-  control_state.filtered_secondary_rpm = WHEEL_REF_HIGH_RPM; 
-  if (control_state.filtered_secondary_rpm <= 0) {
-    control_state.target_rpm = WHEEL_REF_LOW_RPM; 
-  } else if (control_state.filtered_secondary_rpm * WHEEL_TO_SECONDARY_RATIO * WHEEL_MPH_PER_RPM <= WHEEL_REF_BREAKPOINT_MPH) {
-    control_state.target_rpm = WHEEL_REF_PIECEWISE_SLOPE * control_state.filtered_secondary_rpm + WHEEL_REF_LOW_RPM; 
-  }
+  control_state.target_rpm =
+      (wheel_mph - WHEEL_REF_BREAKPOINT_LOW_MPH) * WHEEL_REF_PIECEWISE_SLOPE +
+      WHEEL_REF_LOW_RPM;
+  control_state.target_rpm =
+      CLAMP(control_state.target_rpm, WHEEL_REF_LOW_RPM, WHEEL_REF_HIGH_RPM);
 
   control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;

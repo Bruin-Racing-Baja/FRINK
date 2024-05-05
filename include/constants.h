@@ -8,7 +8,7 @@
 #define dancing 13
 
 // Units
-constexpr float MINUTES_PER_HOUR = 60.0; 
+constexpr float MINUTES_PER_HOUR = 60.0;
 constexpr float SECONDS_PER_MINUTE = 60.0; // s / min
 constexpr float MS_PER_SECOND = 1.0e3;     // ms / s
 constexpr float US_PER_SECOND = 1.0e6;     // us / s
@@ -35,8 +35,9 @@ constexpr float WHEEL_TO_SECONDARY_RATIO =
     (1.0 / SECONDARY_TO_WHEEL_RATIO); // ~0.1253
 
 constexpr float WHEEL_DIAMETER_INCH = 23.0; // inch
-constexpr float WHEEL_MPH_PER_RPM =
-    (WHEEL_DIAMETER_INCH * M_PI) / (FEET_PER_MILE * INCH_PER_FEET * MINUTES_PER_HOUR); // mph / rpm
+constexpr float WHEEL_MPH_PER_RPM = (WHEEL_DIAMETER_INCH * M_PI) /
+                                    (FEET_PER_MILE * INCH_PER_FEET) *
+                                    MINUTES_PER_HOUR; // mph / rpm
 
 constexpr u32 ENGINE_SAMPLE_WINDOW = 4;
 constexpr u32 GEAR_SAMPLE_WINDOW = 10;
@@ -68,14 +69,18 @@ constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 
 constexpr float WHEEL_REF_LOW_RPM = 2100;
 constexpr float WHEEL_REF_HIGH_RPM = 3200;
-constexpr float WHEEL_REF_BREAKPOINT_MPH = 5;
-constexpr float WHEEL_REF_BREAKPOINT_SECONDARY_RPM = (WHEEL_REF_BREAKPOINT_MPH * SECONDARY_TO_WHEEL_RATIO) / WHEEL_MPH_PER_RPM;
-constexpr float WHEEL_REF_PIECEWISE_SLOPE = (WHEEL_REF_HIGH_RPM - WHEEL_REF_LOW_RPM) / (WHEEL_REF_BREAKPOINT_SECONDARY_RPM);
+
+constexpr float WHEEL_REF_BREAKPOINT_LOW_MPH = 5;
+constexpr float WHEEL_REF_BREAKPOINT_HIGH_MPH = 20;
+
+constexpr float WHEEL_REF_PIECEWISE_SLOPE =
+    (WHEEL_REF_HIGH_RPM - WHEEL_REF_LOW_RPM) /
+    (WHEEL_REF_BREAKPOINT_HIGH_MPH - WHEEL_REF_BREAKPOINT_LOW_MPH);
 
 // 0: Anti-Stall
 // 1: Maneuverability
 // 2: Acceleration
-#define MODE 0
+#define MODE 1
 
 #if MODE == 0
 constexpr float ENGINE_TARGET_RPM = 2400.0; // rpm
