@@ -325,6 +325,9 @@ void control_function() {
   control_state.velocity_estimate = odrive.get_vel_estimate();
   control_state.position_estimate = odrive.get_pos_estimate();
 
+  control_state.p_term = ACTUATOR_KP;
+  control_state.d_term = ACTUATOR_KD;
+
   if (sd_initialized && !logging_disconnected) {
     // Serialize control state
     size_t message_length = encode_pb_message(
