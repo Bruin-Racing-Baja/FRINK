@@ -278,15 +278,17 @@ void control_function() {
   float wheel_mph = control_state.filtered_secondary_rpm *
                     WHEEL_TO_SECONDARY_RATIO * WHEEL_MPH_PER_RPM;
 
-  // Controller
-  /*
+// Controller
+#define WHEEL_REF 0
+#if WHEEL_REF
   control_state.target_rpm =
       (wheel_mph - WHEEL_REF_BREAKPOINT_LOW_MPH) * WHEEL_REF_PIECEWISE_SLOPE +
       WHEEL_REF_LOW_RPM;
   control_state.target_rpm =
       CLAMP(control_state.target_rpm, WHEEL_REF_LOW_RPM, WHEEL_REF_HIGH_RPM);
-      */
+#else
   control_state.target_rpm = ENGINE_TARGET_RPM;
+#endif
 
   control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;
@@ -298,14 +300,19 @@ void control_function() {
       (filtered_engine_rpm_error - last_engine_rpm_error) / dt_s;
   last_engine_rpm_error = filtered_engine_rpm_error;
 
-
   control_state.velocity_mode = true;
 
+  /*
   control_state.velocity_command =
       control_state.engine_rpm_error * ACTUATOR_KP +
       MIN(0, control_state.engine_rpm_derror * ACTUATOR_KD);
+      */
+  control_state.velocity_command =
+      control_state.engine_rpm_error * ACTUATOR_KP +
+      control_state.engine_rpm_derror * ACTUATOR_KD;
 
   // TODO: Move this logic to actuator ?
+  /*
   if (odrive.get_pos_estimate() < ACTUATOR_SLOW_INBOUND_REGION_ROT) {
     control_state.velocity_command =
         CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
@@ -315,6 +322,9 @@ void control_function() {
         CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
               ACTUATOR_FAST_INBOUND_VEL);
   }
+  */
+  control_state.velocity_command = CLAMP(control_state.velocity_command,
+                                         -ODRIVE_VEL_LIMIT, ODRIVE_VEL_LIMIT);
 
   actuator.set_velocity(control_state.velocity_command);
 
@@ -561,6 +571,11 @@ void setup() {
   operation_header.controller_kp = ACTUATOR_KP;
   operation_header.controller_kd = ACTUATOR_KD;
   operation_header.target_rpm = ENGINE_TARGET_RPM;
+  operation_header.wheel_ref_low_rpm = WHEEL_REF_LOW_RPM;
+  operation_header.wheel_ref_high_rpm = WHEEL_REF_HIGH_RPM;
+  operation_header.wheel_ref_breakpoint_low_mph = WHEEL_REF_BREAKPOINT_LOW_MPH;
+  operation_header.wheel_ref_breakpoint_high_mph =
+      WHEEL_REF_BREAKPOINT_HIGH_MPH;
 
   size_t message_length = encode_pb_message(
       message_buffer, MESSAGE_BUFFER_SIZE, PROTO_HEADER_MESSAGE_ID,
