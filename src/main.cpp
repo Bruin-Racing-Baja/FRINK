@@ -346,6 +346,14 @@ void control_function() {
   control_state.velocity_estimate = odrive.get_vel_estimate();
   control_state.position_estimate = odrive.get_pos_estimate();
 
+  control_state.p_term = ACTUATOR_KP;
+  control_state.d_term = ACTUATOR_KD;
+  control_state.wheel_ref_low_rpm = WHEEL_REF_LOW_RPM;
+  control_state.wheel_ref_high_rpm = WHEEL_REF_HIGH_RPM;
+  control_state.wheel_ref_breakpoint_low_mph = WHEEL_REF_BREAKPOINT_LOW_MPH;
+  control_state.wheel_ref_breakpoint_high_mph = WHEEL_REF_BREAKPOINT_HIGH_MPH;
+
+
   if (sd_initialized && !logging_disconnected) {
     // Serialize control state
     size_t message_length = encode_pb_message(
