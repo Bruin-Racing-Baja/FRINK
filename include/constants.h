@@ -147,8 +147,8 @@ constexpr u8 BUTTON_PINS[] = {2, 3, 4, 5, 6};
 constexpr u8 ENGINE_SENSOR_PIN = 15;
 constexpr u8 GEARTOOTH_SENSOR_PIN = 14;
 
-constexpr u8 THROTTLE_POT_PIN = 21;
-constexpr u8 BRAKE_SENSOR_PIN = 20;
+constexpr u8 THROTTLE_POT_PIN = 20;
+constexpr u8 BRAKE_SENSOR_PIN = 21;
 
 // Flexcan
 constexpr u32 FLEXCAN_BAUD_RATE = 250000;
