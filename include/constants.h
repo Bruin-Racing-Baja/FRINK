@@ -46,6 +46,12 @@ constexpr u8 ODRIVE_NODE_ID = 0x3;
 constexpr float ODRIVE_VEL_LIMIT = 80.0;        // rot / s
 constexpr float ODRIVE_CURRENT_SOFT_MAX = 30.0; // A
 
+// Driver Interface
+constexpr i32 BRAKE_MIN_VALUE = 385;
+constexpr i32 BRAKE_MAX_VALUE = 545;
+constexpr i32 THROTTLE_MIN_VALUE = 27;
+constexpr i32 THROTTLE_MAX_VALUE = 90;
+
 // Actuator
 // NOTE: Pitch is distance / rotation
 constexpr float ACTUATOR_PITCH_MM = 5.0;                      // mm / rot
@@ -80,7 +86,7 @@ constexpr float WHEEL_REF_PIECEWISE_SLOPE =
 // 0: Anti-Stall
 // 1: Maneuverability
 // 2: Acceleration
-#define MODE 1
+#define MODE 0
 
 #if MODE == 0
 constexpr float ENGINE_TARGET_RPM = 2400.0; // rpm

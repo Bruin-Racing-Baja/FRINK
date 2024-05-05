@@ -279,11 +279,14 @@ void control_function() {
                     WHEEL_TO_SECONDARY_RATIO * WHEEL_MPH_PER_RPM;
 
   // Controller
+  /*
   control_state.target_rpm =
       (wheel_mph - WHEEL_REF_BREAKPOINT_LOW_MPH) * WHEEL_REF_PIECEWISE_SLOPE +
       WHEEL_REF_LOW_RPM;
   control_state.target_rpm =
       CLAMP(control_state.target_rpm, WHEEL_REF_LOW_RPM, WHEEL_REF_HIGH_RPM);
+      */
+  control_state.target_rpm = ENGINE_TARGET_RPM;
 
   control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;
@@ -348,9 +351,13 @@ void control_function() {
 
   control_state.p_term = ACTUATOR_KP;
   control_state.d_term = ACTUATOR_KD;
-  
-  control_state.throt_pot=analogRead(THROTTLE_POT_PIN);
-  control_state.brake_pot=analogRead(BRAKE_SENSOR_PIN);
+
+  control_state.throttle = MAP(analogRead(THROTTLE_POT_PIN), THROTTLE_MIN_VALUE,
+                               THROTTLE_MAX_VALUE, 0.0, 1.0);
+  control_state.brake = MAP(analogRead(BRAKE_SENSOR_PIN), BRAKE_MIN_VALUE,
+                            BRAKE_MAX_VALUE, 0.0, 1.0);
+  control_state.throttle = CLAMP(control_state.throttle, 0.0, 1.0);
+  control_state.brake = CLAMP(control_state.brake, 0.0, 1.0);
 
   if (sd_initialized && !logging_disconnected) {
     // Serialize control state
@@ -546,6 +553,20 @@ void setup() {
   // TODO: Figure out proper ISR priority levels
   NVIC_SET_PRIORITY(IRQ_GPIO6789, 16);
   timer.priority(255);
+
+  OperationHeader operation_header;
+
+  operation_header.timestamp = now();
+  operation_header.clock_us = micros();
+  operation_header.controller_kp = ACTUATOR_KP;
+  operation_header.controller_kd = ACTUATOR_KD;
+  operation_header.target_rpm = ENGINE_TARGET_RPM;
+
+  size_t message_length = encode_pb_message(
+      message_buffer, MESSAGE_BUFFER_SIZE, PROTO_HEADER_MESSAGE_ID,
+      &OperationHeader_msg, &operation_header);
+  size_t num_bytes_written = log_file.write(message_buffer, message_length);
+  log_file.flush();
 
   // Attach timer interrupt
   switch (operating_mode) {
