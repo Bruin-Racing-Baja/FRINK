@@ -346,6 +346,9 @@ void control_function() {
   control_state.velocity_estimate = odrive.get_vel_estimate();
   control_state.position_estimate = odrive.get_pos_estimate();
 
+  control_state.throt_pot=analogRead(THROTTLE_POT_PIN);
+  control_state.brake_pot=analogRead(BRAKE_SENSOR_PIN);
+
   if (sd_initialized && !logging_disconnected) {
     // Serialize control state
     size_t message_length = encode_pb_message(
