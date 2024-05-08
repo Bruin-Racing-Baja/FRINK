@@ -58,6 +58,8 @@ IIRFilter engine_rpm_derror_filter(ENGINE_RPM_DERROR_FILTER_B,
                                    ENGINE_RPM_DERROR_FILTER_N);
 IIRFilter gear_rpm_time_filter(GEAR_RPM_TIME_FILTER_B, GEAR_RPM_TIME_FILTER_A,
                                GEAR_RPM_TIME_FILTER_M, GEAR_RPM_TIME_FILTER_N);
+IIRFilter throttle_fitler(THROTTLE_FILTER_B, THROTTLE_FILTER_A,
+                          THROTTLE_FILTER_M, THROTTLE_FILTER_N);
 
 MedianFilter engine_rpm_median_filter(ENGINE_RPM_MEDIAN_FILTER_WINDOW);
 
@@ -79,6 +81,8 @@ volatile u32 gear_time_diff_us = 0;
 volatile float last_gear_time_diff_us = 0;
 u32 last_gear_time_us = 0;
 u32 last_sample_gear_time_us = 0;
+
+float last_throttle = 0.0;
 
 float last_engine_rpm_error = 0;
 
@@ -235,6 +239,18 @@ void control_function() {
   control_state.cycle_start_us = micros();
   float dt_s = CONTROL_FUNCTION_INTERVAL_MS * SECONDS_PER_MS;
 
+  control_state.throttle = MAP(analogRead(THROTTLE_POT_PIN), THROTTLE_MIN_VALUE,
+                               THROTTLE_MAX_VALUE, 0.0, 1.0);
+  control_state.brake = MAP(analogRead(BRAKE_SENSOR_PIN), BRAKE_MIN_VALUE,
+                            BRAKE_MAX_VALUE, 0.0, 1.0);
+  control_state.throttle = CLAMP(control_state.throttle, 0.0, 1.0);
+  control_state.brake = CLAMP(control_state.brake, 0.0, 1.0);
+  control_state.throttle_filtered =
+      throttle_fitler.update(control_state.throttle);
+  control_state.d_throttle =
+      (control_state.throttle_filtered - last_throttle) / dt_s;
+  last_throttle = control_state.throttle_filtered;
+
   // Grab sensor data
   noInterrupts();
   control_state.engine_count = engine_count;
@@ -278,17 +294,17 @@ void control_function() {
   float wheel_mph = control_state.filtered_secondary_rpm *
                     WHEEL_TO_SECONDARY_RATIO * WHEEL_MPH_PER_RPM;
 
-// Controller
-#define WHEEL_REF 0
-#if WHEEL_REF
-  control_state.target_rpm =
-      (wheel_mph - WHEEL_REF_BREAKPOINT_LOW_MPH) * WHEEL_REF_PIECEWISE_SLOPE +
-      WHEEL_REF_LOW_RPM;
-  control_state.target_rpm =
-      CLAMP(control_state.target_rpm, WHEEL_REF_LOW_RPM, WHEEL_REF_HIGH_RPM);
-#else
-  control_state.target_rpm = ENGINE_TARGET_RPM;
-#endif
+  // Controller
+  if (WHEEL_REF_ENABLED) {
+    control_state.target_rpm =
+        (wheel_mph - WHEEL_REF_BREAKPOINT_LOW_MPH) * WHEEL_REF_PIECEWISE_SLOPE +
+        WHEEL_REF_LOW_RPM;
+    control_state.target_rpm =
+        CLAMP(control_state.target_rpm, WHEEL_REF_LOW_RPM, WHEEL_REF_HIGH_RPM);
+  } else {
+    control_state.target_rpm = ENGINE_TARGET_RPM;
+  }
+
 
   control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;
@@ -309,20 +325,9 @@ void control_function() {
       */
   control_state.velocity_command =
       control_state.engine_rpm_error * ACTUATOR_KP +
-      control_state.engine_rpm_derror * ACTUATOR_KD;
+      control_state.engine_rpm_derror * ACTUATOR_KD +
+      MAX(0, control_state.d_throttle * THROTTLE_KD);
 
-  // TODO: Move this logic to actuator ?
-  /*
-  if (odrive.get_pos_estimate() < ACTUATOR_SLOW_INBOUND_REGION_ROT) {
-    control_state.velocity_command =
-        CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
-              ACTUATOR_SLOW_INBOUND_VEL);
-  } else {
-    control_state.velocity_command =
-        CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
-              ACTUATOR_FAST_INBOUND_VEL);
-  }
-  */
   control_state.velocity_command = CLAMP(control_state.velocity_command,
                                          -ODRIVE_VEL_LIMIT, ODRIVE_VEL_LIMIT);
 
@@ -361,13 +366,6 @@ void control_function() {
 
   control_state.p_term = ACTUATOR_KP;
   control_state.d_term = ACTUATOR_KD;
-
-  control_state.throttle = MAP(analogRead(THROTTLE_POT_PIN), THROTTLE_MIN_VALUE,
-                               THROTTLE_MAX_VALUE, 0.0, 1.0);
-  control_state.brake = MAP(analogRead(BRAKE_SENSOR_PIN), BRAKE_MIN_VALUE,
-                            BRAKE_MAX_VALUE, 0.0, 1.0);
-  control_state.throttle = CLAMP(control_state.throttle, 0.0, 1.0);
-  control_state.brake = CLAMP(control_state.brake, 0.0, 1.0);
 
   if (sd_initialized && !logging_disconnected) {
     // Serialize control state

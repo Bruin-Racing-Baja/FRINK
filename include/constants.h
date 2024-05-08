@@ -73,34 +73,45 @@ constexpr float ACTUATOR_FAST_INBOUND_VEL = 60.0;
 // Control Function
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 
+constexpr bool WHEEL_REF_ENABLED = true;
+
 constexpr float WHEEL_REF_LOW_RPM = 2100;
 constexpr float WHEEL_REF_HIGH_RPM = 3000;
 
 constexpr float WHEEL_REF_BREAKPOINT_LOW_MPH = 10;
 constexpr float WHEEL_REF_BREAKPOINT_HIGH_MPH = 15;
 
-constexpr float WHEEL_REF_PIECEWISE_SLOPE =
-    (WHEEL_REF_HIGH_RPM - WHEEL_REF_LOW_RPM) /
-    (WHEEL_REF_BREAKPOINT_HIGH_MPH - WHEEL_REF_BREAKPOINT_LOW_MPH);
-
-// 0: Anti-Stall
-// 1: Maneuverability
-// 2: Acceleration
-#define MODE 2
+// 0: Gorman Anti-Stall
+// 1: Gorman Maneuverability
+// 2: Gorman Acceleration
+// 3: PD TD
+#define MODE 3
 
 #if MODE == 0
 constexpr float ENGINE_TARGET_RPM = 2400.0; // rpm
 constexpr float ACTUATOR_KP = 0.02;
 constexpr float ACTUATOR_KD = 0.015;
+constexpr float THROTTLE_KD = 0.0;
 #elif MODE == 1
 constexpr float ENGINE_TARGET_RPM = 2200.0; // rpm
 constexpr float ACTUATOR_KP = 0.024;
 constexpr float ACTUATOR_KD = 0.009;
+constexpr float THROTTLE_KD = 0.0;
 #elif MODE == 2
-constexpr float ENGINE_TARGET_RPM = 2100; // rpm
+constexpr float ENGINE_TARGET_RPM = 3000; // rpm
 constexpr float ACTUATOR_KP = 0.04;
 constexpr float ACTUATOR_KD = 0.008;
+constexpr float THROTTLE_KD = 0.0;
+#elif MODE == 3
+constexpr float ENGINE_TARGET_RPM = 3000; // rpm
+constexpr float ACTUATOR_KP = 0.04;
+constexpr float ACTUATOR_KD = 0.004;
+constexpr float THROTTLE_KD = 10.0;
 #endif
+
+constexpr float WHEEL_REF_PIECEWISE_SLOPE =
+    (WHEEL_REF_HIGH_RPM - WHEEL_REF_LOW_RPM) /
+    (WHEEL_REF_BREAKPOINT_HIGH_MPH - WHEEL_REF_BREAKPOINT_LOW_MPH);
 
 constexpr u32 ENGINE_COUNT_MINIMUM_TIME_MS = 100;
 constexpr u32 GEAR_COUNT_MINIMUM_TIME_MS = 300;
@@ -136,6 +147,11 @@ constexpr float GEAR_RPM_TIME_FILTER_A[] = {1.0, -1.734725768809275,
                                             0.7660066009432638};
 constexpr size_t GEAR_RPM_TIME_FILTER_M = COUNT_OF(GEAR_RPM_TIME_FILTER_B);
 constexpr size_t GEAR_RPM_TIME_FILTER_N = COUNT_OF(GEAR_RPM_TIME_FILTER_A);
+
+constexpr float THROTTLE_FILTER_B[] = {0.0591907, 0.0591907};
+constexpr float THROTTLE_FILTER_A[] = {1., -0.88161859};
+constexpr size_t THROTTLE_FILTER_M = COUNT_OF(THROTTLE_FILTER_B);
+constexpr size_t THROTTLE_FILTER_N = COUNT_OF(THROTTLE_FILTER_A);
 
 // Teensy Pins
 constexpr u8 LED_1_PIN = 9;
