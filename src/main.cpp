@@ -40,7 +40,9 @@ constexpr bool wait_for_can = true;
 IntervalTimer timer;
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> flexcan_bus;
 ODrive odrive(&flexcan_bus, ODRIVE_NODE_ID);
-Dash dash(&flexcan_bus, DASH_NODE_ID);
+
+MutableConstants constants;
+Dash dash(&flexcan_bus, DASH_NODE_ID,&constants);
 Actuator actuator(&odrive);
 File log_file;
 IIRFilter engine_rpm_rotation_filter(ENGINE_RPM_ROTATION_FILTER_B,
@@ -266,7 +268,7 @@ void control_function() {
   control_state.secondary_rpm = wheel_rpm * SECONDARY_TO_WHEEL_RATIO;
 
   // Controller
-  control_state.target_rpm = ENGINE_TARGET_RPM;
+  control_state.target_rpm = constants.ENGINE_TARGET_RPM;
   control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;
 
@@ -280,9 +282,9 @@ void control_function() {
   control_state.velocity_mode = true;
 
   control_state.velocity_command =
-      control_state.engine_rpm_error * ACTUATOR_KP +
-      MIN(0, control_state.engine_rpm_derror * ACTUATOR_KD);
-
+      control_state.engine_rpm_error * constants.ACTUATOR_KP +
+      MIN(0, control_state.engine_rpm_derror * constants.ACTUATOR_KD);
+  
   // TODO: Move this logic to actuator ?
   if (odrive.get_pos_estimate() < ACTUATOR_SLOW_INBOUND_REGION_ROT) {
     control_state.velocity_command =
@@ -293,7 +295,9 @@ void control_function() {
         CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
               ACTUATOR_FAST_INBOUND_VEL);
   }
-
+ if(dash.clutch_flag){
+    control_state.velocity_command =-ODRIVE_VEL_LIMIT;
+  }
   actuator.set_velocity(control_state.velocity_command);
   
   //

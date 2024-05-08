@@ -8,7 +8,7 @@
  * Constructor for the actuator
  * @param odrive Pointer to ODrive object
  */
-Actuator::Actuator(ODrive *odrive) : odrive(odrive) {}
+Actuator::Actuator(ODrive *odrive) : odrive(odrive){}
 
 /**
  * Initializes connection to physical ODrive

@@ -1,7 +1,7 @@
 #include <FlexCAN_T4.h>
 #include <dash.h>
 
-Dash::Dash(FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus, u32 node_id):flexcan_bus(flexcan_bus), node_id(node_id)
+Dash::Dash(FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus, u32 node_id, MutableConstants *constants):flexcan_bus(flexcan_bus), node_id(node_id), constants(constants)
 {}
 
 u8 Dash::send_command(u32 cmd_id, bool remote, u8 buf[8]) {
@@ -65,10 +65,10 @@ void Dash::parse_message(const CAN_message_t &msg)
     break;
   case HI_SP_TARG_RPM:
     //set controllers low speeed target RPM to what was in the can message
-    memcpy(&ENGINE_TARGET_RPM, msg.buf,4);
+    //memcpy(&ENGINE_TARGET_RPM, msg.buf,4);
     break; 
   case CLUTCH:
-    //memcpy(&CLUTCH_FLAG, msg.buf,1);
+    memcpy(&clutch_flag, msg.buf,1);
     break;
   }
 

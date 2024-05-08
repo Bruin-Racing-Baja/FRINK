@@ -8,6 +8,7 @@
 #define dancing 13
 
 // Units
+
 constexpr float SECONDS_PER_MINUTE = 60.0; // s / min
 constexpr float MS_PER_SECOND = 1.0e3;     // ms / s
 constexpr float US_PER_SECOND = 1.0e6;     // us / s
@@ -67,46 +68,28 @@ constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 // 0: Anti-Stall
 // 1: Maneuverability
 // 2: Acceleration
-#define MODE 0
-
-
-
-#if MODE == 0
-const float ENGINE_TARGET_RPM = 2400.0; // rpm
-const float ACTUATOR_KP = 0.02;
-const float ACTUATOR_KD = 0.015;
-#elif MODE == 1
-const float ENGINE_TARGET_RPM = 2200.0; // rpm
-const float ACTUATOR_KP = 0.024;
-const float ACTUATOR_KD = 0.009;
-#elif MODE == 2
-const float ENGINE_TARGET_RPM = 3000.0; // rpm
-const float ACTUATOR_KP = 0.04;
-const float ACTUATOR_KD = 0.002;
-#endif
-
 constexpr u32 ENGINE_COUNT_MINIMUM_TIME_MS = 100;
 
 constexpr u32 ENGINE_RPM_MEDIAN_FILTER_WINDOW = 3;
 
-constexpr float ENGINE_RPM_ROTATION_FILTER_B[] = {
+constexpr float ENGINE_RPM_ROTATION_FILTER_B[5] = {
     0.8677114646, -3.305398989, 4.8804516238, -3.305398989, 0.8677114646};
-constexpr float ENGINE_RPM_ROTATION_FILTER_A[] = {
+constexpr float ENGINE_RPM_ROTATION_FILTER_A[5] = {
     1.0, -3.5518051128, 4.8720546544, -3.0589928651, 0.7438198987};
 constexpr size_t ENGINE_RPM_ROTATION_FILTER_M =
     COUNT_OF(ENGINE_RPM_ROTATION_FILTER_B);
 constexpr size_t ENGINE_RPM_ROTATION_FILTER_N =
     COUNT_OF(ENGINE_RPM_ROTATION_FILTER_A);
 
-constexpr float ENGINE_RPM_TIME_FILTER_B[] = {0.24523727525278557,
+constexpr float ENGINE_RPM_TIME_FILTER_B[2] = {0.24523727525278557,
                                               0.24523727525278557};
-constexpr float ENGINE_RPM_TIME_FILTER_A[] = {1.0, -0.5095254494944288};
+constexpr float ENGINE_RPM_TIME_FILTER_A[2] = {1.0, -0.5095254494944288};
 constexpr size_t ENGINE_RPM_TIME_FILTER_M = COUNT_OF(ENGINE_RPM_TIME_FILTER_B);
 constexpr size_t ENGINE_RPM_TIME_FILTER_N = COUNT_OF(ENGINE_RPM_TIME_FILTER_A);
 
-constexpr float ENGINE_RPM_DERROR_FILTER_B[] = {0.07295965726826667,
+constexpr float ENGINE_RPM_DERROR_FILTER_B[2] = {0.07295965726826667,
                                                 0.0729596572682667};
-constexpr float ENGINE_RPM_DERROR_FILTER_A[] = {1.0, -0.8540806854634666};
+constexpr float ENGINE_RPM_DERROR_FILTER_A[2] = {1.0, -0.8540806854634666};
 constexpr size_t ENGINE_RPM_DERROR_FILTER_M =
     COUNT_OF(ENGINE_RPM_DERROR_FILTER_B);
 constexpr size_t ENGINE_RPM_DERROR_FILTER_N =
@@ -123,7 +106,7 @@ constexpr u8 LIMIT_SWITCH_IN_PIN = 27;
 constexpr u8 LIMIT_SWITCH_OUT_PIN = 25;
 constexpr u8 LIMIT_SWITCH_ENGAGE_PIN = 26;
 
-constexpr u8 BUTTON_PINS[] = {2, 3, 4, 5, 6};
+constexpr u8 BUTTON_PINS[5] = {2, 3, 4, 5, 6};
 
 constexpr u8 ENGINE_SENSOR_PIN = 15;
 constexpr u8 GEARTOOTH_SENSOR_PIN = 14;
@@ -146,4 +129,25 @@ constexpr u8 PROTO_CONTROL_FUNCTION_MESSAGE_ID = 0x01;
 constexpr size_t MESSAGE_BUFFER_SIZE = 512;
 constexpr size_t PROTO_DELIMITER_LENGTH = 5;
 
+#define MODE 0
+
+
+struct MutableConstants{
+
+#if MODE == 0
+ float ENGINE_TARGET_RPM = 2400.0; // rpm
+ float ACTUATOR_KP = 0.02;
+ float ACTUATOR_KD = 0.015;
+#elif MODE == 1
+ float ENGINE_TARGET_RPM = 2200.0; // rpm
+ float ACTUATOR_KP = 0.024;
+ float ACTUATOR_KD = 0.009;
+#elif MODE == 2
+ float ENGINE_TARGET_RPM = 3000.0; // rpm
+ float ACTUATOR_KP = 0.04;
+ float ACTUATOR_KD = 0.002;
+#endif
+
+
+};
 #endif

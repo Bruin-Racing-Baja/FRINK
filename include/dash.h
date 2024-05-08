@@ -12,6 +12,8 @@
  */
 class Dash {
 
+
+
 public:
 //SENDING FROM FRINK TO DASH TEENSY
   static const u32 EG_RPM = 0x000;
@@ -39,10 +41,10 @@ public:
   static const u8 CMD_ERROR_INVALID_COMMAND = 2;
   static const u8 CMD_ERROR_WRITE_FAILED = 3;
 
-  Dash(FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus, u32 node_id);
+  Dash(FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus, u32 node_id, MutableConstants *constants);
 
   void parse_message(const CAN_message_t &msg);
-
+  u8 clutch_flag = false;
 //Setters
 u8 set_engine_rpm(float engine_rpm);
 u8 set_wheel_rpm(float wheel_rpm);
@@ -55,6 +57,7 @@ u8 set_d_gain(float d_gain);
 
 
 private:
+  MutableConstants* constants;
   FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus;
 
   u32 node_id;
