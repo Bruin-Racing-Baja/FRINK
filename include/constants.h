@@ -39,6 +39,7 @@ constexpr u32 ENGINE_SAMPLE_WINDOW = 4;
 constexpr u32 GEAR_SAMPLE_WINDOW = 10;
 // ODrive
 constexpr u8 ODRIVE_NODE_ID = 0x3;
+constexpr u8 DASH_NODE_ID = 0x4;
 constexpr float ODRIVE_VEL_LIMIT = 80.0;        // rot / s
 constexpr float ODRIVE_CURRENT_SOFT_MAX = 30.0; // A
 
@@ -68,18 +69,20 @@ constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 // 2: Acceleration
 #define MODE 0
 
+
+
 #if MODE == 0
-constexpr float ENGINE_TARGET_RPM = 2400.0; // rpm
-constexpr float ACTUATOR_KP = 0.02;
-constexpr float ACTUATOR_KD = 0.015;
+const float ENGINE_TARGET_RPM = 2400.0; // rpm
+const float ACTUATOR_KP = 0.02;
+const float ACTUATOR_KD = 0.015;
 #elif MODE == 1
-constexpr float ENGINE_TARGET_RPM = 2200.0; // rpm
-constexpr float ACTUATOR_KP = 0.024;
-constexpr float ACTUATOR_KD = 0.009;
+const float ENGINE_TARGET_RPM = 2200.0; // rpm
+const float ACTUATOR_KP = 0.024;
+const float ACTUATOR_KD = 0.009;
 #elif MODE == 2
-constexpr float ENGINE_TARGET_RPM = 3000.0; // rpm
-constexpr float ACTUATOR_KP = 0.04;
-constexpr float ACTUATOR_KD = 0.002;
+const float ENGINE_TARGET_RPM = 3000.0; // rpm
+const float ACTUATOR_KP = 0.04;
+const float ACTUATOR_KD = 0.002;
 #endif
 
 constexpr u32 ENGINE_COUNT_MINIMUM_TIME_MS = 100;

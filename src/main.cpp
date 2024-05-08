@@ -21,9 +21,9 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <types.h>
+#include <dash.h>
 
 // Acknowledgements to Tyler, Drew, Getty, et al. :)
-
 enum class OperatingMode {
   NORMAL,
   BUTTON_SHIFT,
@@ -40,6 +40,7 @@ constexpr bool wait_for_can = true;
 IntervalTimer timer;
 FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> flexcan_bus;
 ODrive odrive(&flexcan_bus, ODRIVE_NODE_ID);
+Dash dash(&flexcan_bus, DASH_NODE_ID);
 Actuator actuator(&odrive);
 File log_file;
 IIRFilter engine_rpm_rotation_filter(ENGINE_RPM_ROTATION_FILTER_B,
@@ -135,6 +136,7 @@ size_t encode_pb_message(u8 buffer[], size_t buffer_length, u8 id,
 constexpr u8 DOUBLE_BUFFER_SUCCESS = 0;
 constexpr u8 DOUBLE_BUFFER_FULL_ERROR = 1;
 constexpr u8 DOUBLE_BUFFER_INDEX_ERROR = 2;
+u8 dashCtr = 0;
 
 u8 write_to_double_buffer(u8 data[], size_t data_length,
                           LogBuffer double_buffer[2], u8 *buffer_num,
@@ -293,6 +295,8 @@ void control_function() {
   }
 
   actuator.set_velocity(control_state.velocity_command);
+  
+  //
 
   // TODO: Fix velocity for wacky rpm values
   /*
@@ -324,6 +328,23 @@ void control_function() {
 
   control_state.velocity_estimate = odrive.get_vel_estimate();
   control_state.position_estimate = odrive.get_pos_estimate();
+  
+
+  if(dashCtr == 4) //Increase to slow down scroll speed on dash
+  {
+    Serial.print("sending");
+    dash.set_engine_rpm(control_state.engine_rpm);
+    dash.set_wheel_rpm(control_state.secondary_rpm);//check that this is the right wheel rpm
+    dash.set_actuator_pos(control_state.position_estimate);
+    dash.set_targ_rpm(control_state.target_rpm);
+    
+    dashCtr = 0;
+  }
+  else
+  {
+    dashCtr++;
+  }
+
 
   if (sd_initialized && !logging_disconnected) {
     // Serialize control state
