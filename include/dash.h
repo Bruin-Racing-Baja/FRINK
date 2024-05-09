@@ -34,6 +34,8 @@ public:
   static const u32 BUTTON4 = 0x00c;
   static const u32 BUTTON5 = 0x00d;
   static const u32 CLUTCH = 0x00e;
+  static const u32 CONTROLLER_TOGGLE = 0x010;
+
 
 //ERRORS
   static const u8 CMD_SUCCESS = 0;
@@ -44,7 +46,6 @@ public:
   Dash(FlexCAN_T4<CAN1, RX_SIZE_256, TX_SIZE_16> *flexcan_bus, u32 node_id, MutableConstants *constants);
 
   void parse_message(const CAN_message_t &msg);
-  u8 clutch_flag = false;
 //Setters
 u8 set_engine_rpm(float engine_rpm);
 u8 set_wheel_rpm(float wheel_rpm);

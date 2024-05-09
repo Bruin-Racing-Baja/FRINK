@@ -27,6 +27,7 @@ u8 Dash::send_command(u32 cmd_id, bool remote, u8 buf[8]) {
 
 void Dash::parse_message(const CAN_message_t &msg)
 {
+  Serial.println("received from dash");
      u32 parsed_node_id = (msg.id >> 5) & 0x3F;
 
   if (parsed_node_id != node_id) {
@@ -53,23 +54,27 @@ void Dash::parse_message(const CAN_message_t &msg)
     break;
   case P_GAIN:
     // set the controllers p gain to whatever was in the can message
-    // memcpy(&ACTUATOR_KP, msg.buf,4);
+     memcpy(&(constants->ACTUATOR_KP), msg.buf,4);
     break;
   case D_GAIN:
     // set the controllers d gain to whatever was in the can message
-    // memcpy(&ACTUATOR_KD, msg.buf,4);
+     memcpy(&(constants->ACTUATOR_KD), msg.buf,4);
 
     break;
   case LOW_SP_TARG_RPM:
     //set controllers low speeed target RPM to what was in the can message
+
     break;
   case HI_SP_TARG_RPM:
     //set controllers low speeed target RPM to what was in the can message
-    //memcpy(&ENGINE_TARGET_RPM, msg.buf,4);
+     memcpy(&(constants->ENGINE_TARGET_RPM), msg.buf,4);
+     Serial.println(constants->ENGINE_TARGET_RPM);
     break; 
   case CLUTCH:
-    memcpy(&clutch_flag, msg.buf,1);
+    memcpy(&(constants->CLUTCH_FLAG), msg.buf,1);
     break;
+  case CONTROLLER_TOGGLE:
+    memcpy(&(constants->CONTROLLER_TOGGLE_FLAG), msg.buf,1);
   }
 
 

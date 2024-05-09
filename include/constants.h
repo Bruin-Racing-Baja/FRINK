@@ -147,7 +147,8 @@ struct MutableConstants{
  float ACTUATOR_KP = 0.04;
  float ACTUATOR_KD = 0.002;
 #endif
-
+u8 CLUTCH_FLAG = false;
+u8 CONTROLLER_TOGGLE_FLAG = false;
 
 };
 #endif

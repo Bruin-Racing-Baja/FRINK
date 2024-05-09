@@ -105,7 +105,11 @@ u8 message_buffer[MESSAGE_BUFFER_SIZE];
 /**** Global Functions ****/
 time_t get_teensy3_time() { return Teensy3Clock.get(); }
 
-void can_parse(const CAN_message_t &msg) { odrive.parse_message(msg); }
+void can_parse(const CAN_message_t &msg) { 
+  u32 parsed_node_id = (msg.id >> 5) & 0x3F;
+  if(parsed_node_id == ODRIVE_NODE_ID) odrive.parse_message(msg); 
+  else if (parsed_node_id == DASH_NODE_ID) dash.parse_message(msg);
+  }
 
 inline void write_all_leds(u8 state) {
   digitalWrite(LED_1_PIN, state);
@@ -295,7 +299,7 @@ void control_function() {
         CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
               ACTUATOR_FAST_INBOUND_VEL);
   }
- if(dash.clutch_flag){
+ if(constants.CLUTCH_FLAG){
     control_state.velocity_command =-ODRIVE_VEL_LIMIT;
   }
   actuator.set_velocity(control_state.velocity_command);
@@ -336,11 +340,15 @@ void control_function() {
 
   if(dashCtr == 4) //Increase to slow down scroll speed on dash
   {
-    Serial.print("sending");
+    //Serial.print("sending");
     dash.set_engine_rpm(control_state.engine_rpm);
     dash.set_wheel_rpm(control_state.secondary_rpm);//check that this is the right wheel rpm
     dash.set_actuator_pos(control_state.position_estimate);
     dash.set_targ_rpm(control_state.target_rpm);
+    dash.set_p_gain(constants.ACTUATOR_KP);
+    dash.set_d_gain(constants.ACTUATOR_KD);
+    dash.set_hi_spd_targ_rpm(constants.ENGINE_TARGET_RPM);
+    
     
     dashCtr = 0;
   }
