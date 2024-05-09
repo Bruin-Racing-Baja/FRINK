@@ -239,14 +239,18 @@ void control_function() {
   control_state.cycle_start_us = micros();
   float dt_s = CONTROL_FUNCTION_INTERVAL_MS * SECONDS_PER_MS;
 
-  control_state.throttle = MAP(analogRead(THROTTLE_POT_PIN), THROTTLE_MIN_VALUE,
-                               THROTTLE_MAX_VALUE, 0.0, 1.0);
-  control_state.brake = MAP(analogRead(BRAKE_SENSOR_PIN), BRAKE_MIN_VALUE,
-                            BRAKE_MAX_VALUE, 0.0, 1.0);
+  control_state.throttle =
+      map_int_to_float(analogRead(THROTTLE_SENSOR_PIN), THROTTLE_MIN_VALUE,
+                       THROTTLE_MAX_VALUE, 0.0, 1.0);
   control_state.throttle = CLAMP(control_state.throttle, 0.0, 1.0);
+
+  control_state.brake = map_int_to_float(
+      analogRead(BRAKE_SENSOR_PIN), BRAKE_MIN_VALUE, BRAKE_MAX_VALUE, 0.0, 1.0);
   control_state.brake = CLAMP(control_state.brake, 0.0, 1.0);
+
   control_state.throttle_filtered =
       throttle_fitler.update(control_state.throttle);
+
   control_state.d_throttle =
       (control_state.throttle_filtered - last_throttle) / dt_s;
   last_throttle = control_state.throttle_filtered;
@@ -304,7 +308,6 @@ void control_function() {
   } else {
     control_state.target_rpm = ENGINE_TARGET_RPM;
   }
-
 
   control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;
@@ -442,7 +445,7 @@ void setup() {
   pinMode(ENGINE_SENSOR_PIN, INPUT);
   pinMode(GEARTOOTH_SENSOR_PIN, INPUT);
 
-  pinMode(THROTTLE_POT_PIN, INPUT);
+  pinMode(THROTTLE_SENSOR_PIN, INPUT);
   pinMode(BRAKE_SENSOR_PIN, INPUT);
 
   pinMode(LIMIT_SWITCH_IN_PIN, INPUT);

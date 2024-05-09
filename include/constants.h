@@ -47,10 +47,10 @@ constexpr float ODRIVE_VEL_LIMIT = 80.0;        // rot / s
 constexpr float ODRIVE_CURRENT_SOFT_MAX = 30.0; // A
 
 // Driver Interface
-constexpr i32 BRAKE_MIN_VALUE = 385;
-constexpr i32 BRAKE_MAX_VALUE = 545;
-constexpr i32 THROTTLE_MIN_VALUE = 27;
-constexpr i32 THROTTLE_MAX_VALUE = 90;
+constexpr u32 BRAKE_MIN_VALUE = 405;
+constexpr u32 BRAKE_MAX_VALUE = 290;
+constexpr u32 THROTTLE_MIN_VALUE = 475;
+constexpr u32 THROTTLE_MAX_VALUE = 355;
 
 // Actuator
 // NOTE: Pitch is distance / rotation
@@ -98,7 +98,7 @@ constexpr float ACTUATOR_KP = 0.024;
 constexpr float ACTUATOR_KD = 0.009;
 constexpr float THROTTLE_KD = 0.0;
 #elif MODE == 2
-constexpr float ENGINE_TARGET_RPM = 3000; // rpm
+constexpr float ENGINE_TARGET_RPM = 2400; // rpm
 constexpr float ACTUATOR_KP = 0.04;
 constexpr float ACTUATOR_KD = 0.008;
 constexpr float THROTTLE_KD = 0.0;
@@ -169,7 +169,7 @@ constexpr u8 BUTTON_PINS[] = {2, 3, 4, 5, 6};
 constexpr u8 ENGINE_SENSOR_PIN = 15;
 constexpr u8 GEARTOOTH_SENSOR_PIN = 14;
 
-constexpr u8 THROTTLE_POT_PIN = 20;
+constexpr u8 THROTTLE_SENSOR_PIN = 20;
 constexpr u8 BRAKE_SENSOR_PIN = 21;
 
 // Flexcan
