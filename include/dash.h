@@ -47,14 +47,14 @@ public:
 
   void parse_message(const CAN_message_t &msg);
 //Setters
-u8 set_engine_rpm(float engine_rpm);
-u8 set_wheel_rpm(float wheel_rpm);
-u8 set_actuator_pos(float actuator_pos);
-u8 set_targ_rpm(float targ_rpm);
-u8 set_lo_spd_targ_rpm(float lo_targ_rpm);
-u8 set_hi_spd_targ_rpm(float hi_targ_rpm);
-u8 set_p_gain(float p_gain);
-u8 set_d_gain(float d_gain);
+u8 send_engine_rpm(float engine_rpm);
+u8 send_wheel_rpm(float wheel_rpm);
+u8 send_actuator_pos(float actuator_pos);
+u8 send_targ_rpm(float targ_rpm);
+u8 send_lo_spd_targ_rpm(float lo_targ_rpm);
+u8 send_hi_spd_targ_rpm(float hi_targ_rpm);
+u8 send_p_gain(float p_gain);
+u8 send_d_gain(float d_gain);
 
 
 private:

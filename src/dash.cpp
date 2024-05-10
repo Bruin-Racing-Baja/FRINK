@@ -81,49 +81,49 @@ void Dash::parse_message(const CAN_message_t &msg)
   
 }
 
-u8 Dash::set_engine_rpm(float engine_rpm)
+u8 Dash::send_engine_rpm(float engine_rpm)
 {
     u8 buf[8] = {0};
   memcpy(buf, &engine_rpm, 4);
   return send_command(EG_RPM, false, buf);
 }
-u8 Dash::set_wheel_rpm(float wheel_rpm)
+u8 Dash::send_wheel_rpm(float wheel_rpm)
 {
     u8 buf[8] = {0};
   memcpy(buf, &wheel_rpm, 4);
   return send_command(WHEEL_RPM, false, buf);
 }
-u8 Dash::set_actuator_pos(float actuator_pos)
+u8 Dash::send_actuator_pos(float actuator_pos)
 {
     u8 buf[8] = {0};
   memcpy(buf, &actuator_pos, 4);
   return send_command(ACTUATOR_POS, false, buf);
 }
-u8 Dash::set_targ_rpm(float targ_rpm){
+u8 Dash::send_targ_rpm(float targ_rpm){
     u8 buf[8] = {0};
   memcpy(buf, &targ_rpm, 4);
   return send_command(TARGET_RPM, false, buf);
 }
 
-u8 Dash::set_lo_spd_targ_rpm(float lo_targ_rpm)
+u8 Dash::send_lo_spd_targ_rpm(float lo_targ_rpm)
 {
     u8 buf[8] = {0};
   memcpy(buf, &lo_targ_rpm, 4);
   return send_command(LOW_SP_TARG_RPM, false, buf);
 }
-u8 Dash::set_hi_spd_targ_rpm(float hi_targ_rpm)
+u8 Dash::send_hi_spd_targ_rpm(float hi_targ_rpm)
 {
     u8 buf[8] = {0};
   memcpy(buf, &hi_targ_rpm, 4);
   return send_command(HI_SP_TARG_RPM, false, buf);
 }
-u8 Dash::set_p_gain(float p_gain)
+u8 Dash::send_p_gain(float p_gain)
 {
     u8 buf[8] = {0};
   memcpy(buf, &p_gain, 4);
   return send_command(P_GAIN, false, buf);
 }
-u8 Dash::set_d_gain(float d_gain)
+u8 Dash::send_d_gain(float d_gain)
 {
     u8 buf[8] = {0};
   memcpy(buf, &d_gain, 4);

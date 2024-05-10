@@ -341,13 +341,14 @@ void control_function() {
   if(dashCtr == 4) //Increase to slow down scroll speed on dash
   {
     //Serial.print("sending");
-    dash.set_engine_rpm(control_state.engine_rpm);
-    dash.set_wheel_rpm(control_state.secondary_rpm);//check that this is the right wheel rpm
-    dash.set_actuator_pos(control_state.position_estimate);
-    dash.set_targ_rpm(control_state.target_rpm);
-    dash.set_p_gain(constants.ACTUATOR_KP);
-    dash.set_d_gain(constants.ACTUATOR_KD);
-    dash.set_hi_spd_targ_rpm(constants.ENGINE_TARGET_RPM);
+    dash.send_engine_rpm(control_state.engine_rpm);
+    dash.send_wheel_rpm(control_state.secondary_rpm);//check that this is the right wheel rpm
+    dash.send_actuator_pos(control_state.position_estimate);
+    dash.send_targ_rpm(control_state.target_rpm);
+    dash.send_p_gain(constants.ACTUATOR_KP);
+    dash.send_d_gain(constants.ACTUATOR_KD);
+    dash.send_hi_spd_targ_rpm(constants.ENGINE_TARGET_RPM);
+    dash.send_targ_rpm(control_state.target_rpm);
     
     
     dashCtr = 0;
