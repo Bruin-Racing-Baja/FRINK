@@ -342,7 +342,7 @@ void control_function() {
   {
     //Serial.print("sending");
     dash.send_engine_rpm(control_state.engine_rpm);
-    dash.send_wheel_rpm(control_state.secondary_rpm);//check that this is the right wheel rpm
+    dash.send_wheel_rpm(control_state.secondary_rpm * WHEEL_TO_SECONDARY_RATIO * WHEEL_MPH_PER_RPM);//check that this is the right wheel rpm
     dash.send_actuator_pos(control_state.position_estimate);
     dash.send_targ_rpm(control_state.target_rpm);
     dash.send_p_gain(constants.ACTUATOR_KP);
