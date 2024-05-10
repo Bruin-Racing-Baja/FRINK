@@ -306,9 +306,27 @@ void control_function() {
   float wheel_mph = control_state.filtered_secondary_rpm *
                     WHEEL_TO_SECONDARY_RATIO * WHEEL_MPH_PER_RPM;
 
+//Reference Scheduling
+  if (WHEEL_REF_ENABLED) {
+
+    float WHEEL_REF_PIECEWISE_SLOPE =
+    (constants.WHEEL_REF_HIGH_RPM - constants.WHEEL_REF_LOW_RPM) /
+    (constants.WHEEL_REF_BREAKPOINT_HIGH_MPH - constants.WHEEL_REF_BREAKPOINT_LOW_MPH);
+
+    control_state.target_rpm =
+        
+        (wheel_mph - constants.WHEEL_REF_BREAKPOINT_LOW_MPH) * WHEEL_REF_PIECEWISE_SLOPE +
+        constants.WHEEL_REF_LOW_RPM;
+    control_state.target_rpm =
+        CLAMP(control_state.target_rpm, constants.WHEEL_REF_LOW_RPM, constants.WHEEL_REF_HIGH_RPM);
+  } else {
+    control_state.target_rpm = constants.ENGINE_TARGET_RPM;
+  }
+
+
   // Controller
-  control_state.target_rpm = constants.ENGINE_TARGET_RPM;
-  control_state.engine_rpm_error =
+
+    control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;
 
   float filtered_engine_rpm_error =
