@@ -307,20 +307,7 @@ void control_function() {
                     WHEEL_TO_SECONDARY_RATIO * WHEEL_MPH_PER_RPM;
 
   // Controller
-<<<<<<< HEAD
   control_state.target_rpm = constants.ENGINE_TARGET_RPM;
-=======
-  if (WHEEL_REF_ENABLED) {
-    control_state.target_rpm =
-        (wheel_mph - WHEEL_REF_BREAKPOINT_LOW_MPH) * WHEEL_REF_PIECEWISE_SLOPE +
-        WHEEL_REF_LOW_RPM;
-    control_state.target_rpm =
-        CLAMP(control_state.target_rpm, WHEEL_REF_LOW_RPM, WHEEL_REF_HIGH_RPM);
-  } else {
-    control_state.target_rpm = ENGINE_TARGET_RPM;
-  }
-
->>>>>>> origin/pavement_tune
   control_state.engine_rpm_error =
       control_state.filtered_engine_rpm - control_state.target_rpm;
 
@@ -335,36 +322,17 @@ void control_function() {
 
   /*
   control_state.velocity_command =
-<<<<<<< HEAD
-      control_state.engine_rpm_error * constants.ACTUATOR_KP +
-      MIN(0, control_state.engine_rpm_derror * constants.ACTUATOR_KD);
-  
-  // TODO: Move this logic to actuator ?
-  if (odrive.get_pos_estimate() < ACTUATOR_SLOW_INBOUND_REGION_ROT) {
-    control_state.velocity_command =
-        CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
-              ACTUATOR_SLOW_INBOUND_VEL);
-  } else {
-    control_state.velocity_command =
-        CLAMP(control_state.velocity_command, -ODRIVE_VEL_LIMIT,
-              ACTUATOR_FAST_INBOUND_VEL);
-  }
- if(constants.CLUTCH_FLAG){
-    control_state.velocity_command =-ODRIVE_VEL_LIMIT;
-  }
-=======
       control_state.engine_rpm_error * ACTUATOR_KP +
       MIN(0, control_state.engine_rpm_derror * ACTUATOR_KD);
       */
   control_state.velocity_command =
-      control_state.engine_rpm_error * ACTUATOR_KP +
-      control_state.engine_rpm_derror * ACTUATOR_KD +
-      MAX(0, control_state.d_throttle * THROTTLE_KD);
+      control_state.engine_rpm_error * constants.ACTUATOR_KP +
+      control_state.engine_rpm_derror * constants.ACTUATOR_KD +
+      MAX(0, control_state.d_throttle * constants.THROTTLE_KD);
 
   control_state.velocity_command = CLAMP(control_state.velocity_command,
                                          -ODRIVE_VEL_LIMIT, ODRIVE_VEL_LIMIT);
 
->>>>>>> origin/pavement_tune
   actuator.set_velocity(control_state.velocity_command);
   
   //
@@ -422,8 +390,8 @@ void control_function() {
   }
 
 
-  control_state.p_term = ACTUATOR_KP;
-  control_state.d_term = ACTUATOR_KD;
+  control_state.p_term = constants.ACTUATOR_KP;
+  control_state.d_term = constants.ACTUATOR_KD;
 
   if (sd_initialized && !logging_disconnected) {
     // Serialize control state
@@ -624,14 +592,14 @@ void setup() {
 
   operation_header.timestamp = now();
   operation_header.clock_us = micros();
-  operation_header.controller_kp = ACTUATOR_KP;
-  operation_header.controller_kd = ACTUATOR_KD;
-  operation_header.target_rpm = ENGINE_TARGET_RPM;
-  operation_header.wheel_ref_low_rpm = WHEEL_REF_LOW_RPM;
-  operation_header.wheel_ref_high_rpm = WHEEL_REF_HIGH_RPM;
-  operation_header.wheel_ref_breakpoint_low_mph = WHEEL_REF_BREAKPOINT_LOW_MPH;
+  operation_header.controller_kp = constants.ACTUATOR_KP;
+  operation_header.controller_kd = constants.ACTUATOR_KD;
+  operation_header.target_rpm = constants.ENGINE_TARGET_RPM;
+  operation_header.wheel_ref_low_rpm = constants.WHEEL_REF_LOW_RPM;
+  operation_header.wheel_ref_high_rpm = constants.WHEEL_REF_HIGH_RPM;
+  operation_header.wheel_ref_breakpoint_low_mph = constants.WHEEL_REF_BREAKPOINT_LOW_MPH;
   operation_header.wheel_ref_breakpoint_high_mph =
-      WHEEL_REF_BREAKPOINT_HIGH_MPH;
+      constants.WHEEL_REF_BREAKPOINT_HIGH_MPH;
 
   size_t message_length = encode_pb_message(
       message_buffer, MESSAGE_BUFFER_SIZE, PROTO_HEADER_MESSAGE_ID,
