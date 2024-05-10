@@ -59,6 +59,10 @@ IIRFilter engine_rpm_derror_filter(ENGINE_RPM_DERROR_FILTER_B,
                                    ENGINE_RPM_DERROR_FILTER_A,
                                    ENGINE_RPM_DERROR_FILTER_M,
                                    ENGINE_RPM_DERROR_FILTER_N);
+IIRFilter gear_rpm_time_filter(GEAR_RPM_TIME_FILTER_B, GEAR_RPM_TIME_FILTER_A,
+                               GEAR_RPM_TIME_FILTER_M, GEAR_RPM_TIME_FILTER_N);
+IIRFilter throttle_fitler(THROTTLE_FILTER_B, THROTTLE_FILTER_A,
+                          THROTTLE_FILTER_M, THROTTLE_FILTER_N);
 
 MedianFilter engine_rpm_median_filter(ENGINE_RPM_MEDIAN_FILTER_WINDOW);
 
@@ -208,12 +212,12 @@ void on_engine_sensor() {
 void on_geartooth_sensor() {
   u32 cur_time_us = micros();
   if (cur_time_us - last_gear_time_us > GEAR_COUNT_MINIMUM_TIME_MS) {
-  if (gear_count % GEAR_SAMPLE_WINDOW == 0) {
+    if (gear_count % GEAR_SAMPLE_WINDOW == 0) {
       gear_time_diff_us = cur_time_us - last_sample_gear_time_us;
 
       last_sample_gear_time_us = cur_time_us;
-  }
-  ++gear_count;
+    }
+    ++gear_count;
   }
   last_gear_time_diff_us = gear_time_diff_us;
   last_gear_time_us = cur_time_us;
