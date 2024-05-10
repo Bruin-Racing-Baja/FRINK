@@ -49,8 +49,8 @@ constexpr float ODRIVE_CURRENT_SOFT_MAX = 30.0; // A
 // Driver Interface
 constexpr u32 BRAKE_MIN_VALUE = 405;
 constexpr u32 BRAKE_MAX_VALUE = 290;
-constexpr u32 THROTTLE_MIN_VALUE = 475;
-constexpr u32 THROTTLE_MAX_VALUE = 355;
+constexpr u32 THROTTLE_MIN_VALUE = 850;
+constexpr u32 THROTTLE_MAX_VALUE = 370;
 
 // Actuator
 // NOTE: Pitch is distance / rotation
@@ -73,7 +73,7 @@ constexpr float ACTUATOR_FAST_INBOUND_VEL = 60.0;
 // Control Function
 constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 
-constexpr bool WHEEL_REF_ENABLED = true;
+constexpr bool WHEEL_REF_ENABLED = false;
 
 constexpr float WHEEL_REF_LOW_RPM = 2100;
 constexpr float WHEEL_REF_HIGH_RPM = 3000;
@@ -85,15 +85,15 @@ constexpr float WHEEL_REF_BREAKPOINT_HIGH_MPH = 15;
 // 1: Gorman Maneuverability
 // 2: Gorman Acceleration
 // 3: PD TD
-#define MODE 3
+#define MODE 2
 
 #if MODE == 0
 constexpr float ENGINE_TARGET_RPM = 2400.0; // rpm
 constexpr float ACTUATOR_KP = 0.02;
 constexpr float ACTUATOR_KD = 0.015;
 constexpr float THROTTLE_KD = 0.0;
-#elif MODE == 1
-constexpr float ENGINE_TARGET_RPM = 2200.0; // rpm
+#elif MODE == 2
+constexpr float ENGINE_TARGET_RPM = 3000.0; // rpm
 constexpr float ACTUATOR_KP = 0.024;
 constexpr float ACTUATOR_KD = 0.009;
 constexpr float THROTTLE_KD = 0.0;
