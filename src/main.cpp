@@ -396,7 +396,16 @@ void control_function() {
     dash.send_targ_rpm(control_state.target_rpm);
     dash.send_p_gain(constants.ACTUATOR_KP);
     dash.send_d_gain(constants.ACTUATOR_KD);
-    dash.send_hi_spd_targ_rpm(constants.ENGINE_TARGET_RPM);
+
+    if(WHEEL_REF_ENABLED){
+    dash.send_hi_spd_targ_rpm(constants.WHEEL_REF_HIGH_RPM);
+    dash.send_lo_spd_targ_rpm(constants.WHEEL_REF_LOW_RPM);
+    }
+    else 
+    {
+      dash.send_hi_spd_targ_rpm(constants.ENGINE_TARGET_RPM);
+      dash.send_lo_spd_targ_rpm(0);
+    }
     dash.send_targ_rpm(control_state.target_rpm);
     
     

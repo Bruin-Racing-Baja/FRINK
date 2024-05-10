@@ -63,12 +63,15 @@ void Dash::parse_message(const CAN_message_t &msg)
     break;
   case LOW_SP_TARG_RPM:
     //set controllers low speeed target RPM to what was in the can message
+     if(WHEEL_REF_ENABLED) memcpy(&(constants->WHEEL_REF_LOW_RPM), msg.buf,4);
 
     break;
   case HI_SP_TARG_RPM:
     //set controllers low speeed target RPM to what was in the can message
-     memcpy(&(constants->ENGINE_TARGET_RPM), msg.buf,4);
-     Serial.println(constants->ENGINE_TARGET_RPM);
+     if(WHEEL_REF_ENABLED) memcpy(&(constants->WHEEL_REF_HIGH_RPM), msg.buf,4);
+     else memcpy(&(constants->ENGINE_TARGET_RPM), msg.buf,4);
+     
+     //Serial.println(constants->ENGINE_TARGET_RPM);
     break; 
   case CLUTCH:
     memcpy(&(constants->CLUTCH_FLAG), msg.buf,1);
