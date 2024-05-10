@@ -191,8 +191,12 @@ void on_engine_sensor() {
   if (cur_time_us - last_engine_time_us > ENGINE_COUNT_MINIMUM_TIME_MS) {
     if (engine_count % ENGINE_SAMPLE_WINDOW == 0) {
       engine_time_diff_us = cur_time_us - last_sample_engine_time_us;
-      filt_engine_time_diff_us =
-          engine_rpm_rotation_filter.update(engine_time_diff_us);
+      if (engine_time_diff_us > 12000) {
+        filt_engine_time_diff_us = engine_time_diff_us;
+      } else {
+        filt_engine_time_diff_us =
+            engine_rpm_rotation_filter.update(engine_time_diff_us);
+      }
 
       last_sample_engine_time_us = cur_time_us;
     }
@@ -200,6 +204,18 @@ void on_engine_sensor() {
   }
   last_engine_time_us = cur_time_us;
 }
+/*
+      if(fabs((float)engine_time_diff_us - filt_engine_time_diff_us) > 10000){
+        filt_engine_time_diff_us
+      }
+      else{
+      }
+        filt_engine_time_diff_us = engine_time_diff_us;
+      } else {
+        filt_engine_time_diff_us =
+            engine_rpm_rotation_filter.update(engine_time_diff_us);
+      }
+      */
 
 void on_geartooth_sensor() {
   u32 cur_time_us = micros();
