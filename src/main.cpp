@@ -186,6 +186,7 @@ u8 write_to_double_buffer(u8 data[], size_t data_length,
   return DOUBLE_BUFFER_SUCCESS;
 }
 
+// TODO: Fix filtered engine spikes
 void on_engine_sensor() {
   u32 cur_time_us = micros();
   if (cur_time_us - last_engine_time_us > ENGINE_COUNT_MINIMUM_TIME_MS) {
@@ -204,18 +205,6 @@ void on_engine_sensor() {
   }
   last_engine_time_us = cur_time_us;
 }
-/*
-      if(fabs((float)engine_time_diff_us - filt_engine_time_diff_us) > 10000){
-        filt_engine_time_diff_us
-      }
-      else{
-      }
-        filt_engine_time_diff_us = engine_time_diff_us;
-      } else {
-        filt_engine_time_diff_us =
-            engine_rpm_rotation_filter.update(engine_time_diff_us);
-      }
-      */
 
 void on_geartooth_sensor() {
   u32 cur_time_us = micros();
@@ -255,13 +244,16 @@ void control_function() {
   control_state.cycle_start_us = micros();
   float dt_s = CONTROL_FUNCTION_INTERVAL_MS * SECONDS_PER_MS;
 
+  control_state.raw_throttle = analogRead(THROTTLE_SENSOR_PIN);
+  control_state.raw_brake = analogRead(BRAKE_SENSOR_PIN);
+
   control_state.throttle =
-      map_int_to_float(analogRead(THROTTLE_SENSOR_PIN), THROTTLE_MIN_VALUE,
+      map_int_to_float(control_state.raw_throttle, THROTTLE_MIN_VALUE,
                        THROTTLE_MAX_VALUE, 0.0, 1.0);
   control_state.throttle = CLAMP(control_state.throttle, 0.0, 1.0);
 
   control_state.brake = map_int_to_float(
-      analogRead(BRAKE_SENSOR_PIN), BRAKE_MIN_VALUE, BRAKE_MAX_VALUE, 0.0, 1.0);
+      control_state.raw_brake, BRAKE_MIN_VALUE, BRAKE_MAX_VALUE, 0.0, 1.0);
   control_state.brake = CLAMP(control_state.brake, 0.0, 1.0);
 
   control_state.throttle_filtered =
