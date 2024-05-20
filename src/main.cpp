@@ -1,3 +1,4 @@
+#include "core_pins.h"
 #include <Arduino.h>
 #include <FlexCAN_T4.h>
 #include <actuator.h>
@@ -438,6 +439,10 @@ void debug_mode() {
 
 void setup() {
   // Pin setup
+  for (u8 pin = 0; pin < NUM_DIGITAL_PINS; pin++) {
+    pinMode(pin, OUTPUT);
+  }
+
   pinMode(LED_BUILTIN, OUTPUT);
 
   pinMode(LED_1_PIN, OUTPUT);
