@@ -25,6 +25,8 @@ constexpr float INCH_PER_FEET = 12.0;   // inch / feet
 constexpr float ENGINE_COUNTS_PER_ROT = 16; // count / rot
 constexpr float GEAR_COUNTS_PER_ROT = 46;   // count / rot
 
+constexpr float W_GEAR_COUNTS_PER_ROT = 8; // count / rot
+
 // NOTE: x_to_y ratio is how many rotations of x for 1 rotation of y
 constexpr float GEAR_TO_WHEEL_RATIO = 56.0 / 19.0;
 constexpr float GEAR_TO_SECONDARY_RATIO = 17.0 / 46.0;
@@ -41,6 +43,9 @@ constexpr float WHEEL_MPH_PER_RPM = (WHEEL_DIAMETER_INCH * M_PI) /
 
 constexpr u32 ENGINE_SAMPLE_WINDOW = 4;
 constexpr u32 GEAR_SAMPLE_WINDOW = 10;
+constexpr u32 LW_GEAR_SAMPLE_WINDOW = 1; 
+constexpr u32 RW_GEAR_SAMPLE_WINDOW = 1; 
+
 // ODrive
 constexpr u8 ODRIVE_NODE_ID = 0x3;
 constexpr float ODRIVE_VEL_LIMIT = 80.0;        // rot / s
@@ -81,7 +86,7 @@ constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 // 5: Penn Hill Climb NOTE: DONE
 // 6: Penn Maneuverability NOTE: DONE
 
-#define MODE 0
+#define MODE 3
 
 #if MODE == 0
 constexpr float ACTUATOR_KP = 0.02;
@@ -172,6 +177,8 @@ constexpr float WHEEL_REF_PIECEWISE_SLOPE =
 
 constexpr u32 ENGINE_COUNT_MINIMUM_TIME_MS = 100;
 constexpr u32 GEAR_COUNT_MINIMUM_TIME_MS = 300;
+constexpr u32 LW_GEAR_COUNT_MINIMUM_TIME_MS = 300; //reasonable variable? 
+constexpr u32 RW_GEAR_COUNT_MINIMUM_TIME_MS = 300; //reasonable variable? 
 
 constexpr u32 ENGINE_RPM_MEDIAN_FILTER_WINDOW = 3;
 
@@ -225,6 +232,8 @@ constexpr u8 BUTTON_PINS[] = {2, 3, 4, 5, 6};
 
 constexpr u8 ENGINE_SENSOR_PIN = 15;
 constexpr u8 GEARTOOTH_SENSOR_PIN = 14;
+constexpr u8 LW_GEARTOOTH_SENSOR_PIN = 11;
+constexpr u8 RW_GEARTOOTH_SENSOR_PIN = 12; 
 
 constexpr u8 THROTTLE_SENSOR_PIN = 20;
 constexpr u8 BRAKE_SENSOR_PIN = 21;
