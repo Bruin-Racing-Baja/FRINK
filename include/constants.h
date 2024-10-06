@@ -81,7 +81,7 @@ constexpr u32 CONTROL_FUNCTION_INTERVAL_MS = 10; // ms
 // 5: Penn Hill Climb NOTE: DONE
 // 6: Penn Maneuverability NOTE: DONE
 
-#define MODE 3
+#define MODE 0
 
 #if MODE == 0
 constexpr float ACTUATOR_KP = 0.02;
